@@ -1,16 +1,12 @@
 black==23.12.1
-clang-format==17.0.6
-cmake-format==0.6.13
 pip-chill==1.0.3
 ruff==0.1.9
 usd-core==23.11
 # click==8.1.7 # Installed as dependency for black
-# cmakelang==0.6.13 # Installed as dependency for cmake-format
 # colorama==0.4.6 # Installed as dependency for click
 # mypy-extensions==1.0.0 # Installed as dependency for black
 # packaging==23.2 # Installed as dependency for black
 # pathspec==0.12.1 # Installed as dependency for black
 # platformdirs==4.1.0 # Installed as dependency for black
-# six==1.16.0 # Installed as dependency for cmakelang
 # tomli==2.0.1 # Installed as dependency for black
 # typing-extensions==4.9.0 # Installed as dependency for black

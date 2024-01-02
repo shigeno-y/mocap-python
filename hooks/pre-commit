@@ -38,40 +38,9 @@ EOF
 	exit 1
 fi
 
-OLD_PATH="${PATH}"
-PATH="$(dirname $(realpath $0)):$PATH"
-clang_format_exec=$(which clang-format)
-if [[ -z ${clang_format_exec} ]]
-then
-	if [[ $(uname) = "Linux" ]]
-	then
-		clang_format_exec=$(which clang-format)
-	else
-		clang_format_exec=$(realpath "$(dirname $(realpath $0))/clang-format.exe")
-	fi
-fi
-
-cmake_format_exec=$(which cmake-format)
-if [[ -z ${cmake_format_exec} ]]
-then
-	if [[ $(uname) = "Linux" ]]
-	then
-		cmake_format_exec=$(which cmake-format)
-	else
-		cmake_format_exec=$(realpath "$(dirname $(realpath $0))/cmake-format.exe")
-	fi
-fi
-PATH="${OLD_PATH}"
-
 for f in $(git diff --cached --name-only --diff-filter=AMR $against); do
 	resolved=0
-	if [[ $f =~ [ch]pp$ || $f =~ proto$ ]]
-	then
-		$clang_format_exec -i $f && resolved=1
-	elif [[ $f =~ CMakeLists.txt$ || $f =~ cmake$ ]]
-	then
-		$cmake_format_exec -i $f && resolved=1
-	elif [[ $f =~ py$ ]]
+	if [[ $f =~ py$ ]]
 	then
 		python -m black --line-length=119 $f && python -m ruff --fix $f && resolved=1
 	fi

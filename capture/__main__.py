@@ -1,15 +1,13 @@
-from reciever import ThreadedUDPHandler, ThreadedUDPServer
-
-
 if __name__ == "__main__":
     import argparse
 
+    from .reciever import ThreadedUDPHandler, ThreadedUDPServer
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=12351)
-    parser.add_argument("-o", type=argparse.FileType("wb"), default="-")
+    parser.add_argument("--listen-port", type=int, default=12351)
     args = parser.parse_args()
 
-    with ThreadedUDPServer(("0.0.0.0", args.port), ThreadedUDPHandler) as server:
+    with ThreadedUDPServer(("0.0.0.0", args.listen_port), ThreadedUDPHandler) as server:
         try:
             server.serve_forever()
         except KeyboardInterrupt:

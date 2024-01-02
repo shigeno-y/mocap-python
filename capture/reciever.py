@@ -2,8 +2,8 @@ import threading
 import socketserver
 import queue
 
-from decomposer import decomposePacket
-from skelTree import SkelNode
+from .decomposer import decomposePacket
+from .skelTree import SkelNode
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
