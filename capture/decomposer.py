@@ -156,7 +156,7 @@ def decomposePoseData(data: bytes):
     if data.startswith(marker):
         section = data[0 : len(marker) + 8]
         data = data[len(marker) + 8 :]
-        decomposed["fnum"] = tuple((int(x) for x in section[-8:]))
+        decomposed["fnum"] = struct.unpack("<i", section[-8:-4])[0]
     else:
         raise MalformedDataError()
 
@@ -165,7 +165,7 @@ def decomposePoseData(data: bytes):
     if data.startswith(marker):
         section = data[0 : len(marker) + 8]
         data = data[len(marker) + 8 :]
-        decomposed["time"] = int.from_bytes(section[-8:], "little")
+        decomposed["time"] = struct.unpack("<f", section[-8:-4])[0]
     else:
         raise MalformedDataError()
 
@@ -174,7 +174,7 @@ def decomposePoseData(data: bytes):
     if data.startswith(marker):
         section = data[0 : len(marker) + 12]
         data = data[len(marker) + 12 :]
-        decomposed["uttm"] = int.from_bytes(section[-12:], "little")
+        decomposed["uttm"] = struct.unpack("<d", section[-12:-4])[0]
     else:
         raise MalformedDataError()
 
