@@ -1,0 +1,83 @@
+#!/bin/bash
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+	against=HEAD
+else
+	# Initial commit: diff against an empty tree object
+	against=$(git hash-object -t tree /dev/null)
+fi
+
+# If you want to allow non-ASCII filenames set this variable to true.
+allownonascii=$(git config --type=bool hooks.allownonascii)
+
+# Redirect output to stderr.
+exec 1>&2
+
+# Cross platform projects tend to avoid non-ASCII filenames; prevent
+# them from being added to the repository. We exploit the fact that the
+# printable range starts at the space character and ends with tilde.
+if [ "$allownonascii" != "true" ] &&
+	# Note that the use of brackets around a tr range is ok here, (it's
+	# even required, for portability to Solaris 10's /usr/bin/tr), since
+	# the square bracket bytes happen to fall in the designated range.
+	test $(git diff --cached --name-only --diff-filter=A -z $against |
+	  LC_ALL=C tr -d '[ -~]\0' | wc -c) != 0
+then
+	cat <<\EOF
+Error: Attempt to add a non-ASCII file name.
+
+This can cause problems if you want to work with people on other platforms.
+
+To be portable it is advisable to rename the file.
+
+If you know what you are doing you can disable this check using:
+
+  git config hooks.allownonascii true
+EOF
+	exit 1
+fi
+
+OLD_PATH="${PATH}"
+PATH="$(dirname $(realpath $0)):$PATH"
+clang_format_exec=$(which clang-format)
+if [[ -z ${clang_format_exec} ]]
+then
+	if [[ $(uname) = "Linux" ]]
+	then
+		clang_format_exec=$(which clang-format)
+	else
+		clang_format_exec=$(realpath "$(dirname $(realpath $0))/clang-format.exe")
+	fi
+fi
+
+cmake_format_exec=$(which cmake-format)
+if [[ -z ${cmake_format_exec} ]]
+then
+	if [[ $(uname) = "Linux" ]]
+	then
+		cmake_format_exec=$(which cmake-format)
+	else
+		cmake_format_exec=$(realpath "$(dirname $(realpath $0))/cmake-format.exe")
+	fi
+fi
+PATH="${OLD_PATH}"
+
+for f in $(git diff --cached --name-only --diff-filter=AMR $against); do
+	resolved=0
+	if [[ $f =~ [ch]pp$ || $f =~ proto$ ]]
+	then
+		$clang_format_exec -i $f && resolved=1
+	elif [[ $f =~ CMakeLists.txt$ || $f =~ cmake$ ]]
+	then
+		$cmake_format_exec -i $f && resolved=1
+	elif [[ $f =~ py$ ]]
+	then
+		python -m black --line-length=119 $f && python -m ruff --fix $f && resolved=1
+	fi
+
+	if [[ $resolved ]]
+	then
+		git add $f
+	fi
+done
