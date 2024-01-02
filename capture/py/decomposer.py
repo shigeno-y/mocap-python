@@ -101,7 +101,7 @@ def decomposeHierarcalData(data: bytes):
     bones = filter(lambda x: len(x) > 0, data.split(b"bndt"))
 
     for dat in bones:
-        tmp = decomposed["skeleton"]
+        tmp = dict()
         dat = dat[4:]
 
         # bnid
@@ -174,7 +174,7 @@ def decomposePoseData(data: bytes):
     if data.startswith(marker):
         section = data[0 : len(marker) + 12]
         data = data[len(marker) + 12 :]
-        decomposed["uttm"] = tuple((int(x) for x in section[-12:]))
+        decomposed["uttm"] = int.from_bytes(section[-12:], "little")
     else:
         raise MalformedDataError()
 
@@ -213,8 +213,9 @@ def decomposePoseData(data: bytes):
         floats = struct.unpack("<fffffff", dat[0:28])
 
         decomposed["motion"][id] = dict()
-        decomposed["motion"][id]["translation"] = tuple(floats[0:3])
-        decomposed["motion"][id]["rotation"] = tuple(floats[3:])
+        decomposed["motion"][id]["rotation"] = tuple(floats[0:4])
+        decomposed["motion"][id]["translation"] = tuple(floats[4:])
+
     return decomposed, data
 
 
