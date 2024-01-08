@@ -26,7 +26,7 @@ def hierarchy(file, skeleton: dict):
             skel = SkelNode(s["id"], s["rotation"], s["translation"], s["parent_id"])
         else:
             skel.append(SkelNode(s["id"], s["rotation"], s["translation"], s["parent_id"]))
-    skel.dump(file)
+    dump(skel, file)
 
 
 def motion(file, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.XYZ):
