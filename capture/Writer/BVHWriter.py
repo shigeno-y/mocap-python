@@ -12,8 +12,8 @@ def dump(node, file, indent=0, decomposeAxises=SkelNode.ZXY):
         print("HIERARCHY", file=file)
     print(indentPrefix, Specifier(node), " ", node.name(), sep="", file=file)
     print(indentPrefix, "{", sep="", file=file)
-    print(indentPrefix, "OFFSET {} {} {}".format(*(node.translation)), sep="", file=file)
-    print(indentPrefix, "CHANNELS 6 Xposition Yposition Zposition {}".format(decomposeAxises[1]), sep="", file=file)
+    print(indentPrefix, "  OFFSET {} {} {}".format(*(node.translation)), sep="", file=file)
+    print(indentPrefix, "  CHANNELS 6 Xposition Yposition Zposition {}".format(decomposeAxises[1]), sep="", file=file)
     for c in node.children:
         dump(c, file, indent + 1, decomposeAxises)
     print(indentPrefix, "}", sep="", file=file)

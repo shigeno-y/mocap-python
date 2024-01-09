@@ -3,13 +3,13 @@ import socketserver
 import queue
 
 from .decomposer import decomposePacket
-from .Writer import WriteBVH
+from .Writer import WriteDebug
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
 
 
-def worker(title: str, q: queue.Queue, writer=WriteBVH):
+def worker(title: str, q: queue.Queue, writer=WriteDebug):
     flag = True
     skel = None
     timesamples = dict()
@@ -25,10 +25,10 @@ def worker(title: str, q: queue.Queue, writer=WriteBVH):
                 flag = False
                 break
 
-            if item["PACKET_TYPE"] == "SKEL":
-                skel = item["skeleton"]
-            elif item["PACKET_TYPE"] == "POSE":
-                timesamples[item["fnum"]] = item["motion"]
+            if "fram" in item:
+                timesamples[item["fram"]["fnum"]] = item["fram"]
+            elif "skdf" in item:
+                skel = item["skdf"]
             else:
                 pass
             q.task_done()
@@ -45,7 +45,7 @@ class ThreadedUDPHandler(socketserver.BaseRequestHandler):
         # cur_thread = threading.current_thread()
         # print(self.client_address, cur_thread.name, decomposePacket(data))
         dec = decomposePacket(data)
-        dec["client"] = self.client_address
+        # dec["client"] = self.client_address
         with CLIENT_QUEUES_LOCK:
             if self.client_address in CLIENT_QUEUES.keys():
                 CLIENT_QUEUES[self.client_address].put_nowait(dec)
