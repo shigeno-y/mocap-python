@@ -6,39 +6,49 @@ def Specifier(skel):
     return "ROOT" if skel.parent == 65535 else "JOINT"
 
 
-def dump(node, file, indent=0, decomposeAxises=SkelNode.ZXY):
+def dump(node, file, decomposeAxises, indent=0):
     indentPrefix = "  " * indent
     if indent == 0:
         print("HIERARCHY", file=file)
     print(indentPrefix, Specifier(node), " ", node.name(), sep="", file=file)
     print(indentPrefix, "{", sep="", file=file)
-    print(indentPrefix, "  OFFSET {} {} {}".format(*(node.translation)), sep="", file=file)
+    print(indentPrefix, "  OFFSET {} {} {}".format(*[x * 100 for x in node.translation]), sep="", file=file)
     print(indentPrefix, "  CHANNELS 6 Xposition Yposition Zposition {}".format(decomposeAxises[1]), sep="", file=file)
     for c in node.children:
-        dump(c, file, indent + 1, decomposeAxises)
+        dump(c, file, decomposeAxises, indent + 1)
+    if len(node.children) == 0:
+        print(indentPrefix, "  End Site", sep="", file=file)
+        print(indentPrefix, "  {", sep="", file=file)
+        print(indentPrefix, "    OFFSET 0 0 0", sep="", file=file)
+        print(indentPrefix, "  }", sep="", file=file)
     print(indentPrefix, "}", sep="", file=file)
 
 
-def hierarchy(file, skeleton: dict):
+def hierarchy(file, skeleton: list, decomposeAxises):
     skel = None
-    for idx, s in sorted(skeleton.items(), key=lambda x: x[0]):
-        if idx == 0:
-            skel = SkelNode(s["id"], s["rotation"], s["translation"], s["parent_id"])
+    for s in sorted(skeleton, key=lambda x: x["bnid"]):
+        if skel is None:
+            skel = SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"])
         else:
-            skel.append(SkelNode(s["id"], s["rotation"], s["translation"], s["parent_id"]))
-    dump(skel, file)
+            skel.append(SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"]))
+    dump(skel, file, decomposeAxises)
 
 
-def motion(file, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.XYZ):
+def motion(
+    file,
+    timesamples: dict,
+    decomposeAxises,
+    secondsPerFrame=0.02,
+):
     print("MOTION", file=file)
     print(f"Frames: {len(timesamples)}", file=file)
     print(f"Frame Time: {secondsPerFrame}", file=file)
 
-    for time, poses in sorted(timesamples.items()):
+    for frame, poses in sorted(timesamples.items()):
         # Xposition Yposition Zposition Zrotation Xrotation Yrotation
-        for index, pose in sorted(poses.items()):
-            t = pose["translation"]
-            rotation = pose["rotation"]
+        for pose in sorted(poses["btrs"], key=lambda x: x["bnid"]):
+            t = pose["tran"]["translation"]
+            rotation = pose["tran"]["rotation"]
 
             quat = Gf.Rotation(Gf.Quaternion(rotation[3], Gf.Vec3d(rotation[0], rotation[1], rotation[2])))
             r = quat.Decompose(*decomposeAxises[0])
@@ -57,7 +67,7 @@ def motion(file, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=Ske
         print(file=file)
 
 
-def Write(file, skeleton: SkelNode, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):  # 50 Hz
+def Write(file, skeleton: SkelNode, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):
     with open(file, "w") as f:
-        hierarchy(f, skeleton)
-        motion(f, timesamples, secondsPerFrame=secondsPerFrame, decomposeAxises=decomposeAxises)
+        hierarchy(f, skeleton, decomposeAxises)
+        motion(f, timesamples, decomposeAxises, secondsPerFrame=secondsPerFrame)

@@ -3,13 +3,13 @@ import socketserver
 import queue
 
 from .decomposer import decomposePacket
-from .Writer import WriteDebug
+from .Writer import WriteBVH
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
 
 
-def worker(title: str, q: queue.Queue, writer=WriteDebug):
+def worker(title: str, q: queue.Queue, writer=WriteBVH):
     flag = True
     skel = None
     timesamples = dict()
@@ -28,7 +28,7 @@ def worker(title: str, q: queue.Queue, writer=WriteDebug):
             if "fram" in item:
                 timesamples[item["fram"]["fnum"]] = item["fram"]
             elif "skdf" in item:
-                skel = item["skdf"]
+                skel = item["skdf"]["btrs"]
             else:
                 pass
             q.task_done()
