@@ -1,3 +1,5 @@
+from pxr import Gf
+
 MOCOPI_SKEL_NAMES = {
     0: "root",
     1: "torso_1",
@@ -27,6 +29,8 @@ MOCOPI_SKEL_NAMES = {
     25: "r_foot",
     26: "r_toes",
 }
+
+MAT44_IDENTITY = Gf.Matrix4d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
 
 
 class SkelNode:
@@ -60,8 +64,16 @@ class SkelNode:
         self.rotation = rotation
         self.translation = translation
         self.parent = int(parent)
+        self.global_to_self_transform = Gf.Matrix4d(
+            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, self.translation[0], self.translation[1], self.translation[1], 1
+        )
+        self.restTransform = Gf.Matrix4d()
         self.children = list()
         self.__parentPath = ""
+
+    def __updateTransform(self, globalToParent):
+        self.global_to_self_transform += globalToParent - MAT44_IDENTITY
+        self.restTransform = self.global_to_self_transform * globalToParent.GetInverse()
 
     def size(self):
         val = 1
@@ -72,6 +84,7 @@ class SkelNode:
     def append(self, target, parentPath=""):
         if self.id == target.parent:
             target.__parentPath = self.fullPath()
+            target.__updateTransform(self.global_to_self_transform)
             self.children.append(target)
             return True
         else:
@@ -88,3 +101,6 @@ class SkelNode:
 
     def fullPath(self):
         return self.__parentPath + "/" + self.name()
+
+
+__all__ = ["SkelNode"]

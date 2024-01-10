@@ -3,13 +3,13 @@ import socketserver
 import queue
 
 from .decomposer import decomposePacket
-from .Writer import WriteBVH
+from .Writer import WriteUSD
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
 
 
-def worker(title: str, q: queue.Queue, writer=WriteBVH):
+def worker(title: str, q: queue.Queue, writer=WriteUSD):
     flag = True
     skel = None
     timesamples = dict()
