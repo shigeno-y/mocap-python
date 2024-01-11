@@ -82,8 +82,8 @@ def Write(file, skeleton: list, timesamples: dict, *, secondsPerFrame=0.02, deco
     skelRoot = UsdSkel.Root.Define(stage, "/Mocopi")
     stage.SetDefaultPrim(skelRoot.GetPrim())
 
-    stage.SetStartTimeCode(0)
-    stage.SetEndTimeCode(len(timesamples))
+    stage.SetStartTimeCode(min(timesamples.keys()))
+    stage.SetEndTimeCode(max(timesamples.keys()))
 
     Skel = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("skeleton"))
     joints = hierarchy(Skel, skeleton)
