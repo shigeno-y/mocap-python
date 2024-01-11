@@ -30,8 +30,6 @@ MOCOPI_SKEL_NAMES = {
     26: "r_toes",
 }
 
-MAT44_IDENTITY = Gf.Matrix4d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
-
 
 class SkelNode:
     XYZ = (
@@ -72,7 +70,7 @@ class SkelNode:
         self.__parentPath = ""
 
     def __updateTransform(self, globalToParent):
-        self.global_to_self_transform += globalToParent - MAT44_IDENTITY
+        self.global_to_self_transform = self.global_to_self_transform * globalToParent
         self.restTransform = self.global_to_self_transform * globalToParent.GetInverse()
 
     def size(self):
@@ -100,7 +98,8 @@ class SkelNode:
         return f"skel_{self.id}"
 
     def fullPath(self):
-        return self.__parentPath + "/" + self.name()
+        parentPath = (self.__parentPath + "/") if len(self.__parentPath) > 0 else ""
+        return parentPath + self.name()
 
 
 __all__ = ["SkelNode"]

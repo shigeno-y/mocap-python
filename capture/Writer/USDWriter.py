@@ -4,7 +4,7 @@ from pxr import Gf, Usd, UsdSkel
 from .skelTree import SkelNode
 
 
-def hierarchy(skelPrim, skeleton: dict):
+def hierarchy(skelPrim, skeleton: list):
     skel = None
     for s in sorted(skeleton, key=lambda x: x["bnid"]):
         if skel is None:
@@ -15,25 +15,25 @@ def hierarchy(skelPrim, skeleton: dict):
         else:
             skel.append(SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"]))
 
-    jointNames = OrderedDict()
-
-    def BuildJointNames(s):
-        jointNames[s.id] = s.fullPath()
-        for c in s.children:
-            BuildJointNames(c)
-
-    BuildJointNames(skel)
-    skelPrim.GetJointNamesAttr().Set(list(jointNames.values()))
-
     joints = OrderedDict()
 
     def BuildJoints(s):
-        joints[s.id] = s.name()
+        joints[s.id] = s.fullPath()
         for c in s.children:
             BuildJoints(c)
 
     BuildJoints(skel)
-    skelPrim.GetJointsAttr().Set(list(joints.values()))
+    # skelPrim.GetJointsAttr().Set(list(joints.values()))
+
+    jointNames = OrderedDict()
+
+    def BuildJointNames(s):
+        jointNames[s.id] = s.name()
+        for c in s.children:
+            BuildJointNames(c)
+
+    BuildJointNames(skel)
+    # skelPrim.GetJointNamesAttr().Set(list(jointNames.values()))
 
     restTransForms = OrderedDict()
 
@@ -43,20 +43,22 @@ def hierarchy(skelPrim, skeleton: dict):
             BuildRests(c)
 
     BuildRests(skel)
-    skelPrim.GetRestTransformsAttr().Set(list(restTransForms.values()))
-    return jointNames
+    # skelPrim.GetRestTransformsAttr().Set(list(restTransForms.values()))
+    return joints
 
 
-def motion(layer, animPrim, jointNames: OrderedDict, timesamples: dict):
+def motion(layer, animPrim, joints: OrderedDict, timesamples: dict):
     rotationTimesamplesAttrPath = animPrim.GetPath().AppendProperty(UsdSkel.Tokens.rotations)
     translationTimesamplesAttrPath = animPrim.GetPath().AppendProperty(UsdSkel.Tokens.translations)
+
+    animPrim.GetJointsAttr().Set(list(joints.values()))
 
     very_first = True
     for time, poses in sorted(timesamples.items()):
         ordered_poses = sorted(poses["btrs"], key=lambda x: x["bnid"])
         rotation_series = list()
         translation_series = list()
-        for id in jointNames:
+        for id in joints:
             pose = ordered_poses[id]
             r = pose["tran"]["rotation"]
             t = pose["tran"]["translation"]
@@ -72,7 +74,7 @@ def motion(layer, animPrim, jointNames: OrderedDict, timesamples: dict):
         layer.SetTimeSample(translationTimesamplesAttrPath, time, translation_series)
 
 
-def Write(file, skeleton: SkelNode, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):
+def Write(file, skeleton: list, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):
     from pathlib import Path
 
     stage = Usd.Stage.CreateInMemory()
@@ -84,15 +86,15 @@ def Write(file, skeleton: SkelNode, timesamples: dict, *, secondsPerFrame=0.02, 
     stage.SetEndTimeCode(len(timesamples))
 
     Skel = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("skeleton"))
-    jointNames = hierarchy(Skel, skeleton)
+    joints = hierarchy(Skel, skeleton)
 
     animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
-    motion(layer, animPrim, jointNames, timesamples)
+    motion(layer, animPrim, joints, timesamples)
     animPrim.GetScalesAttr().Set(
         [
             Gf.Vec3h(1, 1, 1),
         ]
-        * len(jointNames)
+        * len(joints)
     )
 
     layer.TransferContent(stage.GetRootLayer())
