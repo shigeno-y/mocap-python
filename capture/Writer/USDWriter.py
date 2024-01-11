@@ -64,7 +64,7 @@ def motion(layer, animPrim, joints: OrderedDict, timesamples: dict):
             t = pose["tran"]["translation"]
 
             rotation_series.append(Gf.Quatf(r[3], r[0], r[1], r[2]))
-            translation_series.append(Gf.Vec3f(*t))
+            translation_series.append(Gf.Vec3f(*t) * 100)
 
         if very_first:
             very_first = False
