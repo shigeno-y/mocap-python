@@ -1,6 +1,7 @@
 import threading
 import socketserver
 import queue
+from datetime import datetime
 
 from .decomposer import decomposePacket
 from .Writer import WriteUSD
@@ -9,10 +10,12 @@ CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
 
 
-def worker(title: str, q: queue.Queue, writer=WriteUSD):
+def worker(title: str, qs: dict, qk, writer=WriteUSD):
+    q = qs[qk]
     flag = True
     skel = None
     timesamples = dict()
+    title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
 
     while flag:
         try:
@@ -35,6 +38,7 @@ def worker(title: str, q: queue.Queue, writer=WriteUSD):
         except:
             pass
 
+    qs.pop(qk)
     writer(title + ".bvh", skel, timesamples)
 
 
@@ -56,7 +60,8 @@ class ThreadedUDPHandler(socketserver.BaseRequestHandler):
                     daemon=True,
                     args=(
                         "{}_{}".format(*self.client_address),
-                        CLIENT_QUEUES[self.client_address],
+                        CLIENT_QUEUES,
+                        self.client_address,
                     ),
                 ).start()
 
