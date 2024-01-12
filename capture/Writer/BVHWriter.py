@@ -67,7 +67,11 @@ def motion(
         print(file=file)
 
 
-def Write(file, skeleton: SkelNode, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):
-    with open(file, "w") as f:
+def Write(file, skeleton: list, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):
+    from pathlib import Path
+
+    baseDir = Path(file)
+    baseDir.mkdir(exist_ok=True)
+    with open(baseDir / "main.bvh", "w") as f:
         hierarchy(f, skeleton, decomposeAxises)
         motion(f, timesamples, decomposeAxises, secondsPerFrame=secondsPerFrame)

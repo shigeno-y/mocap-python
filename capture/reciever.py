@@ -4,16 +4,16 @@ import queue
 from datetime import datetime
 
 from .decomposer import decomposePacket
-from .Writer import WriteUSD
+from .Writer import WriteBVH, WriteUSD, WriteDebug
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
 
 
-def worker(title: str, qs: dict, qk, writer=WriteUSD):
+def worker(title: str, qs: dict, qk):
     q = qs[qk]
     flag = True
-    skel = None
+    skel = list()
     timesamples = dict()
     title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
 
@@ -35,11 +35,22 @@ def worker(title: str, qs: dict, qk, writer=WriteUSD):
             else:
                 pass
             q.task_done()
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     qs.pop(qk)
-    writer(title + ".bvh", skel, timesamples)
+    try:
+        WriteDebug(title, skel, timesamples)
+    except Exception as e:
+        print(e)
+    try:
+        WriteBVH(title, skel, timesamples)
+    except Exception as e:
+        print(e)
+    try:
+        WriteUSD(title, skel, timesamples)
+    except Exception as e:
+        print(e)
 
 
 class ThreadedUDPHandler(socketserver.BaseRequestHandler):
