@@ -5,7 +5,7 @@ from pxr import Gf, Usd, UsdSkel
 from .skelTree import SkelNode
 
 
-def hierarchy(skelPrim, skeleton: list):
+def hierarchy(skeleton: list):
     skel = None
     for s in sorted(skeleton, key=lambda x: x["bnid"]):
         if skel is None:
@@ -24,7 +24,6 @@ def hierarchy(skelPrim, skeleton: list):
             BuildJoints(c)
 
     BuildJoints(skel)
-    # skelPrim.GetJointsAttr().Set(list(joints.values()))
 
     jointNames = OrderedDict()
 
@@ -34,7 +33,6 @@ def hierarchy(skelPrim, skeleton: list):
             BuildJointNames(c)
 
     BuildJointNames(skel)
-    # skelPrim.GetJointNamesAttr().Set(list(jointNames.values()))
 
     restTransForms = OrderedDict()
 
@@ -44,15 +42,14 @@ def hierarchy(skelPrim, skeleton: list):
             BuildRests(c)
 
     BuildRests(skel)
-    # skelPrim.GetRestTransformsAttr().Set(list(restTransForms.values()))
     return joints
 
 
 def motion(baseDir: Path, animPrim, joints: OrderedDict, timesamples: dict):
     animPrim.GetJointsAttr().Set(list(joints.values()))
 
-    pattern = (baseDir / "clip.#.usda").as_posix()
-    stride = 60
+    pattern = (baseDir / "clip.#.usd").as_posix()
+    stride = 6000
     manifestFile = (baseDir / "manifest.usda").as_posix()
 
     valueclip = Usd.ClipsAPI(animPrim)
@@ -132,19 +129,19 @@ def Write(file, skeleton: list, timesamples: dict, *, secondsPerFrame=0.02, deco
 
     stage = Usd.Stage.CreateInMemory()
     layer = stage.GetEditTarget().GetLayer()
-    skelRoot = UsdSkel.Root.Define(stage, "/Mocopi")
-    stage.SetDefaultPrim(skelRoot.GetPrim())
+    animPrim = UsdSkel.Animation.Define(stage, "/Motion")
+    stage.SetDefaultPrim(animPrim.GetPrim())
 
     timecodes = timesamples.keys()
 
     stage.SetStartTimeCode(min(timecodes))
     stage.SetEndTimeCode(max(timecodes))
 
-    Skel = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("skeleton"))
-    joints = hierarchy(Skel, skeleton)
+    joints = hierarchy(skeleton)
 
-    animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
     motion(baseDir, animPrim, joints, timesamples)
+    animPrim.CreateRotationsAttr()
+    animPrim.CreateTranslationsAttr()
     animPrim.GetScalesAttr().Set(
         [
             Gf.Vec3h(1, 1, 1),
@@ -153,4 +150,4 @@ def Write(file, skeleton: list, timesamples: dict, *, secondsPerFrame=0.02, deco
     )
 
     layer.TransferContent(stage.GetRootLayer())
-    layer.Export((baseDir / "main.usda").as_posix())
+    layer.Export(Path(file + ".usda").as_posix())
