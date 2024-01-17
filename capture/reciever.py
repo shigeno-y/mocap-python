@@ -4,7 +4,8 @@ import queue
 from datetime import datetime
 
 from .decomposer import decomposePacket
-from .Writer import WriteBVH, WriteUSD
+from .Writer import WriteBVH
+from .Writer.USDWriter import USDWriter
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
@@ -17,6 +18,8 @@ def worker(title: str, qs: dict, qk):
     timesamples = dict()
     frame_offset = None
     title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
+
+    usdWriter = USDWriter(title)
 
     while flag:
         try:
@@ -33,8 +36,10 @@ def worker(title: str, qs: dict, qk):
                 if not frame_offset:
                     frame_offset = item["fram"]["fnum"]
                 timesamples[(item["fram"]["fnum"] - frame_offset)] = item["fram"]
+                usdWriter.addTimesample(item["fram"])
             elif "skdf" in item:
                 skel = item["skdf"]["btrs"]
+                usdWriter.updateSkeleton(skel)
             else:
                 pass
             q.task_done()
@@ -52,7 +57,7 @@ def worker(title: str, qs: dict, qk):
     except Exception as e:
         print(e)
     try:
-        WriteUSD(title, skel, timesamples)
+        usdWriter.close()
     except Exception as e:
         print(e)
 

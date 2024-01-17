@@ -1,8 +1,90 @@
 from pathlib import Path
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
 from pxr import Gf, Usd, UsdSkel
 from .skelTree import SkelNode
+
+
+class USDWriter:
+    def __init__(self, mainFileBasename: str, *, stride: int = 6000, clipPattern="clip.#.usd"):
+        self.__baseDir = Path(mainFileBasename)
+        self.__baseDir.absolute().mkdir(exist_ok=True)
+        self.__mainFile = Path(self.__baseDir.as_posix() + ".usda")
+
+        self.__stride = stride
+
+        self.pattern_ = self.__baseDir / clipPattern
+
+        # self.skeleton_ = None
+        self.joints_ = None
+        self.jointNames_ = None
+        self.restTransforms_ = None
+
+        self.timesamples_ = defaultdict(dict)
+        self.initialFrame_ = None
+        self.lastFrame_ = -1
+
+    def close(self):
+        # generate manifest file
+        manifestFile = (self.__baseDir / "manifest.usda").as_posix()
+        generateManifest(manifestFile)
+
+        # generate main file
+        stage = Usd.Stage.CreateInMemory()
+        layer = stage.GetEditTarget().GetLayer()
+        animPrim = UsdSkel.Animation.Define(stage, "/Motion")
+        stage.SetDefaultPrim(animPrim.GetPrim())
+
+        stage.SetStartTimeCode(self.initialFrame_)
+        stage.SetEndTimeCode(self.lastFrame_)
+
+        animPrim.CreateJointsAttr().Set(list(self.joints_.values()))
+        animPrim.CreateRotationsAttr()
+        animPrim.CreateTranslationsAttr()
+        animPrim.CreateScalesAttr().Set(
+            [
+                Gf.Vec3h(1, 1, 1),
+            ]
+            * len(self.joints_)
+        )
+
+        valueclip = Usd.ClipsAPI(animPrim)
+        valueclip.SetClipPrimPath("/Motion")
+        valueclip.SetClipManifestAssetPath(manifestFile)
+        valueclip.SetClipTemplateAssetPath(self.pattern_.name)
+        valueclip.SetClipTemplateStartTime(self.initialFrame_)
+        valueclip.SetClipTemplateEndTime(self.lastFrame_)
+        valueclip.SetClipTemplateStride(self.__stride)
+
+        # flush valueclips file
+        for k, v in self.timesamples_.items():
+            if len(v) < self.__stride:
+                max_1 = min(v.keys()) + self.__stride - 1
+                v[max_1] = v[max(v.keys())]
+            self.__writeAnimation(k, v)
+
+        layer.TransferContent(stage.GetRootLayer())
+        layer.Export(self.__mainFile.as_posix())
+
+    def updateSkeleton(self, skeleton: list):
+        self.joints_, self.jointNames_, self.restTransforms_ = hierarchy(skeleton)
+
+    def addTimesample(self, sample: dict):
+        frame = sample["fnum"]
+        if self.initialFrame_ is None:
+            self.initialFrame_ = frame
+        self.lastFrame_ = max(self.lastFrame_, frame)
+        self.timesamples_[(frame // self.__stride) * self.__stride][frame] = sample
+
+        buckets = self.timesamples_.keys()
+        if len(buckets) > 2 and self.joints_ is not None:
+            fullBucket = min(buckets)
+            anims = self.timesamples_.pop(fullBucket)
+            self.__writeAnimation(fullBucket, anims)
+
+    def __writeAnimation(self, base, samples):
+        file = Path(self.pattern_.as_posix().replace("#", str(base))).as_posix()
+        saveValueClip(file, self.joints_, samples)
 
 
 def hierarchy(skeleton: list):
@@ -42,26 +124,7 @@ def hierarchy(skeleton: list):
             BuildRests(c)
 
     BuildRests(skel)
-    return joints
-
-
-def motion(baseDir: Path, animPrim, joints: OrderedDict, timesamples: dict):
-    animPrim.GetJointsAttr().Set(list(joints.values()))
-
-    pattern = (baseDir / "clip.#.usd").as_posix()
-    stride = 6000
-    manifestFile = (baseDir / "manifest.usda").as_posix()
-
-    valueclip = Usd.ClipsAPI(animPrim)
-    valueclip.SetClipPrimPath("/Motion")
-    valueclip.SetClipManifestAssetPath(manifestFile)
-    valueclip.SetClipTemplateAssetPath(pattern)
-    valueclip.SetClipTemplateStartTime(min(timesamples.keys()))
-    valueclip.SetClipTemplateEndTime(max(timesamples.keys()))
-    valueclip.SetClipTemplateStride(stride)
-
-    generateManifest(manifestFile)
-    splitMotion(pattern, joints, timesamples, stride)
+    return joints, jointNames, restTransForms
 
 
 def generateManifest(file: str):
@@ -74,20 +137,6 @@ def generateManifest(file: str):
     layer = stage.GetEditTarget().GetLayer()
     layer.TransferContent(stage.GetRootLayer())
     layer.Export(file)
-
-
-def splitMotion(pattern: str, joints: OrderedDict, timesamples: dict, stride):
-    from collections import defaultdict
-    from functools import reduce
-
-    def splitter(acc, item):
-        acc[(item[0] // stride) * stride][item[0]] = item[1]
-        return acc
-
-    clips = reduce(splitter, timesamples.items(), defaultdict(dict))
-    for base, ts in clips.items():
-        file = Path(pattern.replace("#", str(base))).as_posix()
-        saveValueClip(file, joints, ts)
 
 
 def saveValueClip(file: str, joints: OrderedDict, timesamples: dict):
@@ -121,33 +170,3 @@ def saveValueClip(file: str, joints: OrderedDict, timesamples: dict):
     layer = stage.GetEditTarget().GetLayer()
     layer.TransferContent(stage.GetRootLayer())
     layer.Export(file)
-
-
-def Write(file, skeleton: list, timesamples: dict, *, secondsPerFrame=0.02, decomposeAxises=SkelNode.ZXY):
-    baseDir = Path(file)
-    baseDir.mkdir(exist_ok=True)
-
-    stage = Usd.Stage.CreateInMemory()
-    layer = stage.GetEditTarget().GetLayer()
-    animPrim = UsdSkel.Animation.Define(stage, "/Motion")
-    stage.SetDefaultPrim(animPrim.GetPrim())
-
-    timecodes = timesamples.keys()
-
-    stage.SetStartTimeCode(min(timecodes))
-    stage.SetEndTimeCode(max(timecodes))
-
-    joints = hierarchy(skeleton)
-
-    motion(baseDir, animPrim, joints, timesamples)
-    animPrim.CreateRotationsAttr()
-    animPrim.CreateTranslationsAttr()
-    animPrim.GetScalesAttr().Set(
-        [
-            Gf.Vec3h(1, 1, 1),
-        ]
-        * len(joints)
-    )
-
-    layer.TransferContent(stage.GetRootLayer())
-    layer.Export(Path(file + ".usda").as_posix())
