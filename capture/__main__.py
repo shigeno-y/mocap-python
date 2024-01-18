@@ -19,8 +19,6 @@ def run_convert(args):
     if args.output is None:
         args.output = args.input.with_suffix("")
 
-    print(args)
-
     composeFromBVH(args.input, args.output, args.stride)
 
 

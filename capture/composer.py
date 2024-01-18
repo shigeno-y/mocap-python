@@ -12,7 +12,7 @@ def composeFromBVH(infile: Path, outfile: Path, stride: int):
     with infile.open() as f:
         bvh = Bvh(f.read())
 
-    usd = USDWriter(outfile.as_posix(), stride=stride)
+    usd = USDWriter(outfile.as_posix(), stride=stride, framesPerSecond=int(1.0 / bvh.frame_time))
 
     usd.initialFrame_ = 0
     usd.lastFrame_ = bvh.nframes
@@ -122,17 +122,13 @@ def composeRotationTranslation(bvh: Bvh, joint: str, frame: int):
     }
 
     rot = Gf.Rotation().SetIdentity()
-    tra = (
-        0,
-        0,
-        0,
-    )
+    tra = [0, 0, 0]
 
     for ch in bvh.joint_channels(joint):
         val = bvh.frame_joint_channel(frame, joint, ch)
         if "rotation" in ch:
             rot *= Gf.Rotation(ROTATION_AXIS[ch[0]], val)
-        elif "translation" in ch:
+        elif "position" in ch:
             tra[TRANSLATION_INDEX[ch[0]]] = val
 
     r = Gf.Quatf(rot.GetQuat())

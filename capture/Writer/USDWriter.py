@@ -7,7 +7,7 @@ from .skelTree import SkelNode
 
 
 class USDWriter:
-    def __init__(self, mainFileBasename: str, *, stride: int = 6000, clipPattern="clip.#.usd"):
+    def __init__(self, mainFileBasename: str, *, stride: int = 6000, clipPattern="clip.#.usd", framesPerSecond=60):
         self.__baseDir = Path(mainFileBasename)
         self.__baseDir.absolute().mkdir(exist_ok=True)
         self.__mainFile = Path(self.__baseDir.as_posix() + ".usda")
@@ -22,14 +22,15 @@ class USDWriter:
         self.restTransforms_ = None
 
         self.timesamples_ = defaultdict(dict)
+        self._fps = framesPerSecond
         self.initialFrame_ = None
         self.lastFrame_ = -1
         self.__writeAnimationThreads = list()
 
     def close(self):
         # generate manifest file
-        manifestFile = (self.__baseDir / "manifest.usda").relative_to(self.__baseDir.parent).as_posix()
-        generateManifest(manifestFile)
+        manifestFile = self.__baseDir / "manifest.usda"
+        generateManifest(manifestFile.as_posix())
 
         # generate main file
         stage = Usd.Stage.CreateInMemory()
@@ -37,6 +38,7 @@ class USDWriter:
         animPrim = UsdSkel.Animation.Define(stage, "/Motion")
         stage.SetDefaultPrim(animPrim.GetPrim())
 
+        stage.SetFramesPerSecond(self._fps)
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
@@ -52,7 +54,7 @@ class USDWriter:
 
         valueclip = Usd.ClipsAPI(animPrim)
         valueclip.SetClipPrimPath("/Motion")
-        valueclip.SetClipManifestAssetPath(manifestFile)
+        valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self.__baseDir.parent).as_posix())
         valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self.__baseDir.parent).as_posix())
         valueclip.SetClipTemplateStartTime(self.initialFrame_)
         valueclip.SetClipTemplateEndTime(self.lastFrame_)
