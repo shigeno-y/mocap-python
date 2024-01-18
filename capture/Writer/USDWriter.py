@@ -7,13 +7,24 @@ from .skelTree import SkelNode
 
 
 class USDWriter:
-    def __init__(self, mainFileBasename: str, *, stride: int = 6000, clipPattern="clip.#.usd", framesPerSecond=60):
+    def __init__(
+        self,
+        mainFileBasename: str,
+        *,
+        stride: int = 600,
+        framesPerSecond=60,
+        clipPattern="clip.#.usd",
+        output_base=None,
+        **kwargs
+    ):
         self.__baseDir = Path(mainFileBasename)
-        self.__baseDir.absolute().mkdir(exist_ok=True)
+        if output_base is not None:
+            self.__baseDir = Path(output_base) / self.__baseDir.name
+        self.__baseDir.absolute().mkdir(parents=True, exist_ok=True)
         self.__mainFile = Path(self.__baseDir.as_posix() + ".usda")
 
         self.__stride = stride
-
+        self.fps_ = framesPerSecond
         self.pattern_ = self.__baseDir / clipPattern
 
         # self.skeleton_ = None
@@ -22,7 +33,6 @@ class USDWriter:
         self.restTransforms_ = None
 
         self.timesamples_ = defaultdict(dict)
-        self._fps = framesPerSecond
         self.initialFrame_ = None
         self.lastFrame_ = -1
         self.__writeAnimationThreads = list()
@@ -41,7 +51,7 @@ class USDWriter:
         skeleton = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("Skeleton"))
         animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
 
-        stage.SetFramesPerSecond(self._fps)
+        stage.SetFramesPerSecond(self.fps_)
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
@@ -65,7 +75,7 @@ class USDWriter:
         valueclip.SetClipPrimPath("/Motion")
         valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self.__baseDir.parent).as_posix())
         valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self.__baseDir.parent).as_posix())
-        valueclip.SetClipTemplateStartTime(self.initialFrame_)
+        valueclip.SetClipTemplateStartTime(0)
         valueclip.SetClipTemplateEndTime(self.lastFrame_)
         valueclip.SetClipTemplateStride(self.__stride)
 
@@ -201,3 +211,6 @@ def saveValueClip(file: str, joints: OrderedDict, timesamples: dict):
     layer = stage.GetEditTarget().GetLayer()
     layer.TransferContent(stage.GetRootLayer())
     layer.Export(file)
+
+
+__all__ = ["USDWriter"]

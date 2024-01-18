@@ -2,23 +2,24 @@ from pathlib import Path
 from collections import OrderedDict
 
 from pxr import Gf
-from .Writer.USDWriter import USDWriter
+from capture.Writer.USDWriter import USDWriter
 
 from bvh import Bvh
 
 
-def composeFromBVH(infile: Path, outfile: Path, stride: int):
+def composeFromBVH(infile: Path, output_base: Path, stride: int):
     bvh = None
     with infile.open() as f:
         bvh = Bvh(f.read())
 
-    usd = USDWriter(outfile.as_posix(), stride=stride, framesPerSecond=int(1.0 / bvh.frame_time))
+    usdMain = infile.with_suffix("").name
+    usd = USDWriter(usdMain, output_base=output_base, stride=stride, framesPerSecond=round(1.0 / bvh.frame_time))
 
     usd.initialFrame_ = 0
     usd.lastFrame_ = bvh.nframes
 
     composeSkeleton(usd, bvh)
-    composeAnimation(outfile.as_posix(), stride, bvh, usd.joints_)
+    composeAnimation(usdMain, output_base, stride, bvh, usd.joints_)
     usd.close()
 
 
@@ -49,7 +50,7 @@ def composeSkeleton(usd: USDWriter, bvh: Bvh):
     return root_joint
 
 
-def composeAnimation(outfile: str, stride: int, bvh: Bvh, joints):
+def composeAnimation(outfile: str, output_base: Path, stride: int, bvh: Bvh, joints):
     import multiprocessing
 
     pool = list()
@@ -60,6 +61,7 @@ def composeAnimation(outfile: str, stride: int, bvh: Bvh, joints):
                 target=traverseBVH,
                 args=(
                     outfile,
+                    output_base,
                     stride,
                     bvh,
                     joints,
@@ -74,8 +76,10 @@ def composeAnimation(outfile: str, stride: int, bvh: Bvh, joints):
         t.join()
 
 
-def traverseBVH(outfile: str, stride: int, bvh: Bvh, usd_joints: OrderedDict, start_frame: int, last_frame: int):
-    usd = USDWriter(outfile, stride=stride)
+def traverseBVH(
+    outfile: str, output_base: Path, stride: int, bvh: Bvh, usd_joints: OrderedDict, start_frame: int, last_frame: int
+):
+    usd = USDWriter(outfile, output_base=output_base, stride=stride)
     usd.initialFrame_ = 0
     usd.joints_ = usd_joints
     joints = bvh.get_joints_names()

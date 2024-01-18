@@ -4,11 +4,23 @@ import queue
 from statistics import fmean
 from datetime import datetime
 
-from .decomposer import decomposePacket
-from .Writer.USDWriter import USDWriter
+from capture.decomposer import decomposePacket
+from capture.Writer import USDWriter, BVHWriter, DebugWriter
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()
+
+# TODO
+# impl more sane way
+WRITERS = {
+    "usd": USDWriter,
+    "bvh": BVHWriter,
+    "debug": DebugWriter,
+}
+WRITER_OF_CHOICE = str()
+WRITER_OPTIONS = dict()
+# impl more sane way
+# TODO
 
 
 def worker(title: str, qs: dict, qk):
@@ -20,7 +32,7 @@ def worker(title: str, qs: dict, qk):
     title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
     frameTimes = list()
 
-    usdWriter = USDWriter(title, stride=600)
+    writer = WRITERS[WRITER_OF_CHOICE](title, **WRITER_OPTIONS)
 
     while flag:
         try:
@@ -37,11 +49,11 @@ def worker(title: str, qs: dict, qk):
                 if not frame_offset:
                     frame_offset = item["fram"]["fnum"]
                 timesamples[(item["fram"]["fnum"] - frame_offset)] = item["fram"]
-                usdWriter.addTimesample(item["fram"])
+                writer.addTimesample(item["fram"])
                 frameTimes.append(item["fram"]["uttm"])
             elif "skdf" in item:
                 skel = item["skdf"]["btrs"]
-                usdWriter.updateSkeleton(skel)
+                writer.updateSkeleton(skel)
             else:
                 pass
             q.task_done()
@@ -61,21 +73,9 @@ def worker(title: str, qs: dict, qk):
         delta = list(map(lambda x: abs(x - fps), candidate))
         fps = int(candidate[delta.index(min(delta))])
 
-    usdWriter._fps = fps
-
-    # try:
-    #     from .Writer import WriteDebug
-    #     WriteDebug(title, skel, timesamples)
-    #     pass
-    # except Exception as e:
-    #     print(e)
-    # try:
-    #     from .Writer import WriteBVH
-    #     WriteBVH(title, skel, timesamples, )
-    # except Exception as e:
-    #     print(e)
+    writer.fps_ = fps
     try:
-        usdWriter.close()
+        writer.close()
     except Exception as e:
         print(e)
 
@@ -83,11 +83,7 @@ def worker(title: str, qs: dict, qk):
 class ThreadedUDPHandler(socketserver.BaseRequestHandler):
     def handle(self):
         data = self.request[0]
-        # socket = self.request[1]
-        # cur_thread = threading.current_thread()
-        # print(self.client_address, cur_thread.name, decomposePacket(data))
         dec = decomposePacket(data)
-        # dec["client"] = self.client_address
         with CLIENT_QUEUES_LOCK:
             if self.client_address in CLIENT_QUEUES.keys():
                 CLIENT_QUEUES[self.client_address].put_nowait(dec)
@@ -109,3 +105,6 @@ class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
         for q in CLIENT_QUEUES.values():
             q.put_nowait({"STOP_TOKEN": True})
         return super().server_close()
+
+
+__all__ = ["WRITERS", "ThreadedUDPHandler", "ThreadedUDPServer"]
