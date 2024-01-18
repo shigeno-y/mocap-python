@@ -35,12 +35,21 @@ class USDWriter:
         # generate main file
         stage = Usd.Stage.CreateInMemory()
         layer = stage.GetEditTarget().GetLayer()
-        animPrim = UsdSkel.Animation.Define(stage, "/Motion")
-        stage.SetDefaultPrim(animPrim.GetPrim())
+        skelRoot = UsdSkel.Root.Define(stage, "/Skel")
+        stage.SetDefaultPrim(skelRoot.GetPrim())
+
+        skeleton = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("Skeleton"))
+        animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
 
         stage.SetFramesPerSecond(self._fps)
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
+
+        default_transforms = list(self.restTransforms_.values())
+        skeleton.CreateBindTransformsAttr().Set(default_transforms)
+        skeleton.CreateRestTransformsAttr().Set(default_transforms)
+        skeleton.CreateJointsAttr().Set(list(self.joints_.values()))
+        skeleton.GetPrim().GetRelationship("skel:animationSource").SetTargets([animPrim.GetPath()])
 
         animPrim.CreateJointsAttr().Set(list(self.joints_.values()))
         animPrim.CreateRotationsAttr()
