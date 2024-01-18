@@ -1,6 +1,7 @@
 import threading
 import socketserver
 import queue
+from statistics import fmean
 from datetime import datetime
 
 from .decomposer import decomposePacket
@@ -17,6 +18,7 @@ def worker(title: str, qs: dict, qk):
     timesamples = dict()
     frame_offset = None
     title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
+    frameTimes = list()
 
     usdWriter = USDWriter(title, stride=600)
 
@@ -36,6 +38,7 @@ def worker(title: str, qs: dict, qk):
                     frame_offset = item["fram"]["fnum"]
                 timesamples[(item["fram"]["fnum"] - frame_offset)] = item["fram"]
                 usdWriter.addTimesample(item["fram"])
+                frameTimes.append(item["fram"]["uttm"])
             elif "skdf" in item:
                 skel = item["skdf"]["btrs"]
                 usdWriter.updateSkeleton(skel)
@@ -46,15 +49,31 @@ def worker(title: str, qs: dict, qk):
             print(e)
 
     qs.pop(qk)
+    fps = 1.0 / fmean(map(lambda t: t[1] - t[0], zip(frameTimes, frameTimes[1:])))
+    candidate = [
+        30,
+        50,
+        60,
+    ]
+    if int(fps) in candidate:
+        fps = int(fps)
+    else:
+        delta = list(map(lambda x: abs(x - fps), candidate))
+        fps = int(candidate[delta.index(min(delta))])
+
+    usdWriter._fps = fps
+
     # try:
-    #    WriteDebug(title, skel, timesamples)
-    #    pass
+    #     from .Writer import WriteDebug
+    #     WriteDebug(title, skel, timesamples)
+    #     pass
     # except Exception as e:
-    #    print(e)
+    #     print(e)
     # try:
-    #    WriteBVH(title, skel, timesamples)
+    #     from .Writer import WriteBVH
+    #     WriteBVH(title, skel, timesamples, )
     # except Exception as e:
-    #    print(e)
+    #     print(e)
     try:
         usdWriter.close()
     except Exception as e:
