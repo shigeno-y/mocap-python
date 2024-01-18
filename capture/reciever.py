@@ -4,7 +4,6 @@ import queue
 from datetime import datetime
 
 from .decomposer import decomposePacket
-from .Writer import WriteBVH
 from .Writer.USDWriter import USDWriter
 
 CLIENT_QUEUES = dict()
@@ -19,7 +18,7 @@ def worker(title: str, qs: dict, qk):
     frame_offset = None
     title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
 
-    usdWriter = USDWriter(title)
+    usdWriter = USDWriter(title, stride=600)
 
     while flag:
         try:
@@ -47,15 +46,15 @@ def worker(title: str, qs: dict, qk):
             print(e)
 
     qs.pop(qk)
-    try:
-        # WriteDebug(title, skel, timesamples)
-        pass
-    except Exception as e:
-        print(e)
-    try:
-        WriteBVH(title, skel, timesamples)
-    except Exception as e:
-        print(e)
+    # try:
+    #    WriteDebug(title, skel, timesamples)
+    #    pass
+    # except Exception as e:
+    #    print(e)
+    # try:
+    #    WriteBVH(title, skel, timesamples)
+    # except Exception as e:
+    #    print(e)
     try:
         usdWriter.close()
     except Exception as e:

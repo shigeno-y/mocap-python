@@ -1,5 +1,6 @@
 from pathlib import Path
 from collections import defaultdict, OrderedDict
+import multiprocessing
 
 from pxr import Gf, Usd, UsdSkel
 from .skelTree import SkelNode
@@ -23,10 +24,11 @@ class USDWriter:
         self.timesamples_ = defaultdict(dict)
         self.initialFrame_ = None
         self.lastFrame_ = -1
+        self.__writeAnimationThreads = list()
 
     def close(self):
         # generate manifest file
-        manifestFile = (self.__baseDir / "manifest.usda").as_posix()
+        manifestFile = (self.__baseDir / "manifest.usda").relative_to(self.__baseDir.parent).as_posix()
         generateManifest(manifestFile)
 
         # generate main file
@@ -35,7 +37,7 @@ class USDWriter:
         animPrim = UsdSkel.Animation.Define(stage, "/Motion")
         stage.SetDefaultPrim(animPrim.GetPrim())
 
-        stage.SetStartTimeCode(self.initialFrame_)
+        stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
         animPrim.CreateJointsAttr().Set(list(self.joints_.values()))
@@ -51,17 +53,13 @@ class USDWriter:
         valueclip = Usd.ClipsAPI(animPrim)
         valueclip.SetClipPrimPath("/Motion")
         valueclip.SetClipManifestAssetPath(manifestFile)
-        valueclip.SetClipTemplateAssetPath(self.pattern_.name)
+        valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self.__baseDir.parent).as_posix())
         valueclip.SetClipTemplateStartTime(self.initialFrame_)
         valueclip.SetClipTemplateEndTime(self.lastFrame_)
         valueclip.SetClipTemplateStride(self.__stride)
 
         # flush valueclips file
-        for k, v in self.timesamples_.items():
-            if len(v) < self.__stride:
-                max_1 = min(v.keys()) + self.__stride - 1
-                v[max_1] = v[max(v.keys())]
-            self.__writeAnimation(k, v)
+        self.flushTimesample()
 
         layer.TransferContent(stage.GetRootLayer())
         layer.Export(self.__mainFile.as_posix())
@@ -73,18 +71,40 @@ class USDWriter:
         frame = sample["fnum"]
         if self.initialFrame_ is None:
             self.initialFrame_ = frame
+        frame -= self.initialFrame_
         self.lastFrame_ = max(self.lastFrame_, frame)
         self.timesamples_[(frame // self.__stride) * self.__stride][frame] = sample
 
         buckets = self.timesamples_.keys()
-        if len(buckets) > 2 and self.joints_ is not None:
+        if self.joints_ is not None and len(self.timesamples_[min(buckets)]) >= self.__stride:
             fullBucket = min(buckets)
             anims = self.timesamples_.pop(fullBucket)
             self.__writeAnimation(fullBucket, anims)
 
+    def flushTimesample(self):
+        for k, v in self.timesamples_.items():
+            if len(v) < self.__stride:
+                max_1 = min(v.keys()) + self.__stride - 1
+                v[max_1] = v[max(v.keys())]
+            self.__writeAnimation(k, v)
+
+        for t in self.__writeAnimationThreads:
+            t.join()
+
     def __writeAnimation(self, base, samples):
-        file = Path(self.pattern_.as_posix().replace("#", str(base))).as_posix()
-        saveValueClip(file, self.joints_, samples)
+        file = Path(self.pattern_.as_posix().replace("#", str(base)))
+        self.__writeAnimationThreads.append(
+            multiprocessing.Process(
+                target=saveValueClip,
+                args=(
+                    file.as_posix(),
+                    self.joints_,
+                    samples,
+                ),
+                name=file.name,
+            )
+        )
+        self.__writeAnimationThreads[-1].start()
 
 
 def hierarchy(skeleton: list):
@@ -162,7 +182,7 @@ def saveValueClip(file: str, joints: OrderedDict, timesamples: dict):
             t = pose["tran"]["translation"]
 
             rotation_series.append(Gf.Quatf(r[3], r[0], r[1], r[2]))
-            translation_series.append(Gf.Vec3f(*t) * 100)
+            translation_series.append(Gf.Vec3f(*t))
 
         rotationsAttr.Set(rotation_series, time)
         translationsAttr.Set(translation_series, time)
