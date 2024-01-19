@@ -2,7 +2,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 from pxr import Gf
-from capture.Writer.USDWriter import USDWriter
+from mocap.Writer.USDWriter import USDWriter
 
 from bvh import Bvh
 

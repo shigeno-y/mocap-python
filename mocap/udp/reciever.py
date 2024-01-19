@@ -4,8 +4,8 @@ import queue
 from statistics import fmean
 from datetime import datetime
 
-from capture.decomposer import decomposePacket
-from capture.Writer import USDWriter, BVHWriter, DebugWriter
+from mocap.Reader.MocopiUDP import decomposePacket
+from mocap.Writer import USDWriter, BVHWriter, DebugWriter
 
 CLIENT_QUEUES = dict()
 CLIENT_QUEUES_LOCK = threading.Semaphore()

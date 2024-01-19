@@ -1,90 +1,43 @@
-from pathlib import Path
-from collections import defaultdict
 import tempfile
 import threading
 
 from pxr import Gf
-from capture.Writer.skelTree import SkelNode
+from .BaseWriter import BaseWriter
+from .skelTree import SkelNode
 
 
-class BVHWriter:
-    def __init__(
-        self,
-        mainFileBasename: str,
-        *,
-        stride: int = 600,
-        framesPerSecond=60,
-        decomposeAxises=SkelNode.ZXY,
-        output_base=None,
-        **kwargs,
-    ):
-        self.__baseDir = Path(mainFileBasename)
-        if output_base is not None:
-            self.__baseDir = Path(output_base) / self.__baseDir.name
-        self.__baseDir.absolute().mkdir(parents=True, exist_ok=True)
-        self.__mainFile = self.__baseDir / "main.bvh"
+class BVHWriter(BaseWriter):
+    def __init__(self, *args, decomposeAxises=SkelNode.ZXY, **kwargs):
+        super().__init__(*args, **kwargs, output_extension=".bvh")
 
-        self.__stride = stride
-        self.fps_ = framesPerSecond
-        self.__decomposeAxises = decomposeAxises
-
-        self.__tempFiles = dict()
-
-        self.skeleton_ = list()
-        self.timesamples_ = defaultdict(dict)
-        self.initialFrame_ = None
-        self.lastFrame_ = -1
-        self.__writeAnimationThreads = list()
+        self._decomposeAxises = decomposeAxises
+        self._tempFiles = dict()
 
     def close(self):
         self.flushTimesample()
 
-        with self.__mainFile.open("w") as f:
-            hierarchy(f, self.skeleton_, self.__decomposeAxises)
-            self.__mergeAnimation(f)
+        with self._mainFile.open("w") as f:
+            hierarchy(f, self.skeleton_, self._decomposeAxises)
+            self._mergeAnimation(f)
 
-    def updateSkeleton(self, skeleton: list):
-        self.skeleton_ = skeleton
-
-    def addTimesample(self, sample: dict):
-        frame = sample["fnum"]
-        if self.initialFrame_ is None:
-            self.initialFrame_ = frame
-        frame -= self.initialFrame_
-        self.lastFrame_ = max(self.lastFrame_, frame)
-        self.timesamples_[(frame // self.__stride) * self.__stride][frame] = sample
-
-        buckets = self.timesamples_.keys()
-        if len(self.timesamples_[min(buckets)]) >= self.__stride:
-            fullBucket = min(buckets)
-            anims = self.timesamples_.pop(fullBucket)
-            self.__writeAnimation(fullBucket, anims)
-
-    def flushTimesample(self):
-        for t in self.timesamples_.items():
-            self.__writeAnimation(*t)
-
-        for t in self.__writeAnimationThreads:
-            t.join()
-
-    def __writeAnimation(self, base, samples):
+    def _writeAnimation(self, base, samples):
         file = tempfile.TemporaryFile("w+")
-        self.__tempFiles[base] = file
-        self.__writeAnimationThreads.append(
+        self._tempFiles[base] = file
+        self._writeAnimationThreads.append(
             threading.Thread(
                 target=saveAnimationFragment,
-                args=(file, base, samples, self.__decomposeAxises),
+                args=(file, base, samples, self._decomposeAxises),
             )
         )
-        self.__writeAnimationThreads[-1].start()
+        self._writeAnimationThreads[-1].start()
 
-    def __mergeAnimation(self, file):
+    def _mergeAnimation(self, file):
         print("MOTION", file=file)
         print(f"Frames: {self.lastFrame_+1}", file=file)
-        print(f"Frame Time: {1.0 / self.fps_}", file=file)
+        print(f"Frame Time: {1.0 / self._fps}", file=file)
 
-        for base in sorted(self.__tempFiles):
-            tmp = self.__tempFiles.pop(base)
+        for base in sorted(self._tempFiles):
+            tmp = self._tempFiles.pop(base)
             tmp.seek(0)
             file.write(tmp.read())
             tmp.close()

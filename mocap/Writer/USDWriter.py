@@ -1,46 +1,28 @@
 from pathlib import Path
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 import multiprocessing
 
 from pxr import Gf, Usd, UsdSkel
+from .BaseWriter import BaseWriter
 from .skelTree import SkelNode
 
 
-class USDWriter:
-    def __init__(
-        self,
-        mainFileBasename: str,
-        *,
-        stride: int = 600,
-        framesPerSecond=60,
-        clipPattern="clip.#.usd",
-        output_base=None,
-        **kwargs
-    ):
-        self.__baseDir = Path(mainFileBasename)
-        if output_base is not None:
-            self.__baseDir = Path(output_base) / self.__baseDir.name
-        self.__baseDir.absolute().mkdir(parents=True, exist_ok=True)
-        self.__mainFile = Path(self.__baseDir.as_posix() + ".usda")
+class USDWriter(BaseWriter):
+    def __init__(self, *args, clipPattern="clip.#.usd", **kwargs):
+        super().__init__(*args, **kwargs, output_extension=".usda")
 
-        self.__stride = stride
-        self.fps_ = framesPerSecond
-        self.pattern_ = self.__baseDir / clipPattern
+        self._baseDir.absolute().mkdir(parents=True, exist_ok=True)
 
-        # self.skeleton_ = None
-        self.joints_ = None
-        self.jointNames_ = None
-        self.restTransforms_ = None
-
-        self.timesamples_ = defaultdict(dict)
-        self.initialFrame_ = None
-        self.lastFrame_ = -1
-        self.__writeAnimationThreads = list()
+        self.pattern_ = self._baseDir / clipPattern
 
     def close(self):
+        joints, jointNames, restTransforms = hierarchy(self.skeleton_)
         # generate manifest file
-        manifestFile = self.__baseDir / "manifest.usda"
+        manifestFile = self._baseDir / "manifest.usda"
         generateManifest(manifestFile.as_posix())
+
+        # flush valueclips file
+        self.flushTimesample()
 
         # generate main file
         stage = Usd.Stage.CreateInMemory()
@@ -55,77 +37,63 @@ class USDWriter:
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
-        default_transforms = list(self.restTransforms_.values())
+        default_transforms = list(restTransforms.values())
         skeleton.CreateBindTransformsAttr().Set(default_transforms)
         skeleton.CreateRestTransformsAttr().Set(default_transforms)
-        skeleton.CreateJointsAttr().Set(list(self.joints_.values()))
+        skeleton.CreateJointsAttr().Set(list(joints.values()))
         skeleton.GetPrim().GetRelationship("skel:animationSource").SetTargets([animPrim.GetPath()])
 
-        animPrim.CreateJointsAttr().Set(list(self.joints_.values()))
+        animPrim.CreateJointsAttr().Set(list(joints.values()))
         animPrim.CreateRotationsAttr()
         animPrim.CreateTranslationsAttr()
         animPrim.CreateScalesAttr().Set(
             [
                 Gf.Vec3h(1, 1, 1),
             ]
-            * len(self.joints_)
+            * len(joints)
         )
 
         valueclip = Usd.ClipsAPI(animPrim)
         valueclip.SetClipPrimPath("/Motion")
-        valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self.__baseDir.parent).as_posix())
-        valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self.__baseDir.parent).as_posix())
+        valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self._baseDir.parent).as_posix())
+        valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateStartTime(0)
-        valueclip.SetClipTemplateEndTime(self.lastFrame_)
-        valueclip.SetClipTemplateStride(self.__stride)
-
-        # flush valueclips file
-        self.flushTimesample()
+        valueclip.SetClipTemplateEndTime(max(self.timesamples_[max(self.timesamples_.keys())].keys()))
+        valueclip.SetClipTemplateStride(self._stride)
 
         layer.TransferContent(stage.GetRootLayer())
-        layer.Export(self.__mainFile.as_posix())
-
-    def updateSkeleton(self, skeleton: list):
-        self.joints_, self.jointNames_, self.restTransforms_ = hierarchy(skeleton)
-
-    def addTimesample(self, sample: dict):
-        frame = sample["fnum"]
-        if self.initialFrame_ is None:
-            self.initialFrame_ = frame
-        frame -= self.initialFrame_
-        self.lastFrame_ = max(self.lastFrame_, frame)
-        self.timesamples_[(frame // self.__stride) * self.__stride][frame] = sample
-
-        buckets = self.timesamples_.keys()
-        if self.joints_ is not None and len(self.timesamples_[min(buckets)]) >= self.__stride:
-            fullBucket = min(buckets)
-            anims = self.timesamples_.pop(fullBucket)
-            self.__writeAnimation(fullBucket, anims)
+        layer.Export(self._mainFile.as_posix())
 
     def flushTimesample(self):
-        for k, v in self.timesamples_.items():
-            if len(v) < self.__stride:
-                max_1 = min(v.keys()) + self.__stride - 1
+        for base, v in self.timesamples_.items():
+            if len(v) < self._stride:
+                max_1 = min(v.keys()) + self._stride - 1
                 v[max_1] = v[max(v.keys())]
-            self.__writeAnimation(k, v)
 
-        for t in self.__writeAnimationThreads:
-            t.join()
+        last_base = max(self.timesamples_.keys())
+        last_pose_frame = max(self.timesamples_[last_base].keys())
+        lase_pose = self.timesamples_[last_base][last_pose_frame]
 
-    def __writeAnimation(self, base, samples):
+        self.timesamples_[last_base + self._stride][last_base + self._stride] = lase_pose
+        self.timesamples_[last_base + self._stride][last_base + (self._stride * 2) - 1] = lase_pose
+
+        super().flushTimesample()
+
+    def _writeAnimation(self, base, samples):
+        joints, jointNames, restTransforms = hierarchy(self.skeleton_)
         file = Path(self.pattern_.as_posix().replace("#", str(base)))
-        self.__writeAnimationThreads.append(
+        self._writeAnimationThreads.append(
             multiprocessing.Process(
                 target=saveValueClip,
                 args=(
                     file.as_posix(),
-                    self.joints_,
+                    joints,
                     samples,
                 ),
                 name=file.name,
             )
         )
-        self.__writeAnimationThreads[-1].start()
+        self._writeAnimationThreads[-1].start()
 
 
 def hierarchy(skeleton: list):

@@ -1,5 +1,5 @@
 def run_udp(args):
-    from capture import reciever
+    from mocap.udp import reciever
 
     reciever.WRITER_OF_CHOICE = args.writer
     reciever.WRITER_OPTIONS = dict(**vars(args))
@@ -17,10 +17,10 @@ def run_udp(args):
 
 
 def run_convert(args):
-    from capture.composer import composeFromBVH
+    from mocap.Reader.BVHFile import composeFromBVH
 
-    if args.output_base is None:
-        args.output_base = args.input.with_suffix("")
+    # if args.output_base is None:
+    #     args.output_base = args.input.with_suffix("")
 
     composeFromBVH(args.input, args.output_base, args.stride)
 
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     import argparse
     from pathlib import Path
 
-    from capture import reciever
+    from mocap.udp import reciever
 
     parser = argparse.ArgumentParser()
     parser.set_defaults(func=lambda x: parser.print_help())
