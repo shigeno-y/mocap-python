@@ -19,7 +19,7 @@ class BaseWriter:
         self._mainFile = Path(self._baseDir.as_posix() + output_extension)
 
         self._stride = stride
-        self._fps = framesPerSecond
+        self.fps_ = framesPerSecond
 
         self.skeleton_ = list()
         self.timesamples_ = defaultdict(dict)

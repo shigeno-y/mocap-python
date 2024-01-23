@@ -13,18 +13,24 @@ def composeFromBVH(infile: Path, output_base: Path, stride: int):
         bvh = Bvh(f.read())
 
     usdMain = infile.with_suffix("").name
-    usd = USDWriter(usdMain, output_base=output_base, stride=stride, framesPerSecond=round(1.0 / bvh.frame_time))
+    usd = USDWriter(
+        usdMain,
+        output_base=output_base,
+        stride=stride,
+        framesPerSecond=round(1.0 / bvh.frame_time),
+        do_more_on_flushTimesample=False,
+    )
 
     usd.initialFrame_ = 0
     usd.lastFrame_ = bvh.nframes
 
     composeSkeleton(usd, bvh)
-    composeAnimation(usdMain, output_base, stride, bvh, usd.joints_)
+    composeAnimation(usdMain, output_base, stride, bvh, usd.skeleton_)
+
     usd.close()
 
 
 def composeSkeleton(usd: USDWriter, bvh: Bvh):
-    root_joint = None
     skeleton = list()
 
     joints = bvh.get_joints_names()
@@ -42,15 +48,12 @@ def composeSkeleton(usd: USDWriter, bvh: Bvh):
         )
         tmp["tran"]["translation"] = bvh.joint_offset(j)
 
-        if tmp["pbid"] < 0:
-            root_joint = j
         skeleton.append(tmp)
 
     usd.updateSkeleton(skeleton)
-    return root_joint
 
 
-def composeAnimation(outfile: str, output_base: Path, stride: int, bvh: Bvh, joints):
+def composeAnimation(outfile: str, output_base: Path, stride: int, bvh: Bvh, skeleton):
     import multiprocessing
 
     pool = list()
@@ -64,7 +67,7 @@ def composeAnimation(outfile: str, output_base: Path, stride: int, bvh: Bvh, joi
                     output_base,
                     stride,
                     bvh,
-                    joints,
+                    skeleton,
                     chunk * stride,
                     ((chunk + 1) * stride) - 1,
                 ),
@@ -77,11 +80,11 @@ def composeAnimation(outfile: str, output_base: Path, stride: int, bvh: Bvh, joi
 
 
 def traverseBVH(
-    outfile: str, output_base: Path, stride: int, bvh: Bvh, usd_joints: OrderedDict, start_frame: int, last_frame: int
+    outfile: str, output_base: Path, stride: int, bvh: Bvh, skeleton: OrderedDict, start_frame: int, last_frame: int
 ):
-    usd = USDWriter(outfile, output_base=output_base, stride=stride)
+    usd = USDWriter(outfile, output_base=output_base, stride=stride, do_more_on_flushTimesample=False)
     usd.initialFrame_ = 0
-    usd.joints_ = usd_joints
+    usd.updateSkeleton(skeleton)
     joints = bvh.get_joints_names()
     for frame in range(start_frame, min(last_frame, bvh.nframes)):
         tmp = dict()
