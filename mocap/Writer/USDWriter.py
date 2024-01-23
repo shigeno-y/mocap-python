@@ -8,12 +8,13 @@ from .skelTree import SkelNode
 
 
 class USDWriter(BaseWriter):
-    def __init__(self, *args, clipPattern="clip.#.usd", **kwargs):
+    def __init__(self, *args, clipPattern="clip.#.usd", do_more_on_flushTimesample=True, **kwargs):
         super().__init__(*args, **kwargs, output_extension=".usda")
 
         self._baseDir.absolute().mkdir(parents=True, exist_ok=True)
 
         self.pattern_ = self._baseDir / clipPattern
+        self._do_more_on_flushTimesample = do_more_on_flushTimesample
 
         self.joints = list()
         self.jointNames = list()
@@ -133,24 +134,25 @@ class USDWriter(BaseWriter):
         valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateStartTime(0)
-        valueclip.SetClipTemplateEndTime(max(self.timesamples_[max(self.timesamples_.keys())].keys()))
+        valueclip.SetClipTemplateEndTime(self.lastFrame_)
         valueclip.SetClipTemplateStride(self._stride)
 
         layer.TransferContent(stage.GetRootLayer())
         layer.Export(self._mainFile.as_posix())
 
     def flushTimesample(self):
-        for base, v in self.timesamples_.items():
-            if len(v) < self._stride:
-                max_1 = min(v.keys()) + self._stride - 1
-                v[max_1] = v[max(v.keys())]
+        if self._do_more_on_flushTimesample:
+            for base, v in self.timesamples_.items():
+                if len(v) < self._stride:
+                    max_1 = min(v.keys()) + self._stride - 1
+                    v[max_1] = v[max(v.keys())]
 
-        last_base = max(self.timesamples_.keys())
-        last_pose_frame = max(self.timesamples_[last_base].keys())
-        lase_pose = self.timesamples_[last_base][last_pose_frame]
+            last_base = max(self.timesamples_.keys())
+            last_pose_frame = max(self.timesamples_[last_base].keys())
+            lase_pose = self.timesamples_[last_base][last_pose_frame]
 
-        self.timesamples_[last_base + self._stride][last_base + self._stride] = lase_pose
-        self.timesamples_[last_base + self._stride][last_base + (self._stride * 2) - 1] = lase_pose
+            self.timesamples_[last_base + self._stride][last_base + self._stride] = lase_pose
+            self.timesamples_[last_base + self._stride][last_base + (self._stride * 2) - 1] = lase_pose
 
         super().flushTimesample()
 
