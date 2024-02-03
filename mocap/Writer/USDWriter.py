@@ -117,7 +117,9 @@ class USDWriter(BaseWriter):
         skeleton.CreateBindTransformsAttr().Set(default_transforms)
         skeleton.CreateRestTransformsAttr().Set(default_transforms)
         skeleton.CreateJointsAttr().Set(list(joints.values()))
-        skeleton.GetPrim().GetRelationship("skel:animationSource").SetTargets([animPrim.GetPath()])
+
+        skelAnimBinding = UsdSkel.BindingAPI.Apply(skeleton.GetPrim())
+        skelAnimBinding.CreateAnimationSourceRel().AddTarget(animPrim.GetPath())
 
         animPrim.CreateJointsAttr().Set(list(joints.values()))
         animPrim.CreateRotationsAttr()
@@ -134,7 +136,7 @@ class USDWriter(BaseWriter):
         valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateStartTime(0)
-        valueclip.SetClipTemplateEndTime(self.lastFrame_)
+        valueclip.SetClipTemplateEndTime(max(self.timesamples_[max(self.timesamples_.keys())].keys()))
         valueclip.SetClipTemplateStride(self._stride)
 
         layer.TransferContent(stage.GetRootLayer())
