@@ -39,13 +39,13 @@ EOF
 fi
 
 for f in $(git diff --cached --name-only --diff-filter=AMR $against); do
-	resolved=0
+	resolved="ng"
 	if [[ $f =~ py$ ]]
 	then
-		python -m black --line-length=119 $f && python -m ruff --isolated --fix $f && resolved=1
+		python -m black --line-length=119 $f && python -m ruff --isolated --fix $f && resolved="ok"
 	fi
 
-	if [[ $resolved ]]
+	if [[ $resolved -eq "ok"]]
 	then
 		git add $f
 	fi

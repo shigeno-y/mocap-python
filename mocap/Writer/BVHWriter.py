@@ -10,6 +10,8 @@ class BVHWriter(BaseWriter):
     def __init__(self, *args, decomposeAxises=SkelNode.ZXY, **kwargs):
         super().__init__(*args, **kwargs, output_extension=".bvh")
 
+        self._baseDir.absolute().mkdir(parents=True, exist_ok=True)
+
         self._decomposeAxises = decomposeAxises
         self._tempFiles = dict()
 
