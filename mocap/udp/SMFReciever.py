@@ -1,7 +1,7 @@
 import threading
 import socketserver
 import queue
-from statistics import fmean
+
 from datetime import datetime
 
 from mocap.Reader.MocopiUDP import decomposePacket
@@ -27,10 +27,8 @@ def worker(title: str, qs: dict, qk):
     q = qs[qk]
     flag = True
     skel = list()
-    timesamples = dict()
     frame_offset = None
     title = datetime.now().strftime("%Y-%m-%d-%H-%M-%S_") + title
-    frameTimes = list()
 
     writer = WRITERS[WRITER_OF_CHOICE](title, **WRITER_OPTIONS)
 
@@ -48,9 +46,7 @@ def worker(title: str, qs: dict, qk):
             if "fram" in item:
                 if not frame_offset:
                     frame_offset = item["fram"]["fnum"]
-                timesamples[(item["fram"]["fnum"] - frame_offset)] = item["fram"]
                 writer.addTimesample(item["fram"])
-                frameTimes.append(item["fram"]["uttm"])
             elif "skdf" in item:
                 skel = item["skdf"]["btrs"]
                 writer.updateSkeleton(skel)
@@ -61,19 +57,7 @@ def worker(title: str, qs: dict, qk):
             print(e)
 
     qs.pop(qk)
-    fps = 1.0 / fmean(map(lambda t: t[1] - t[0], zip(frameTimes, frameTimes[1:])))
-    candidate = [
-        30,
-        50,
-        60,
-    ]
-    if int(fps) in candidate:
-        fps = int(fps)
-    else:
-        delta = list(map(lambda x: abs(x - fps), candidate))
-        fps = int(candidate[delta.index(min(delta))])
 
-    writer._fps = fps
     try:
         writer.close()
     except Exception as e:
