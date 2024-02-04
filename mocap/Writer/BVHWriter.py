@@ -17,6 +17,7 @@ class BVHWriter(BaseWriter):
 
     def close(self):
         self.flushTimesample()
+        self._solveFPS()
 
         with self._mainFile.open("w") as f:
             hierarchy(f, self.skeleton_, self._decomposeAxises)

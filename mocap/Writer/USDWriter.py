@@ -24,6 +24,7 @@ class USDWriter(BaseWriter):
 
         # flush valueclips file
         self.flushTimesample()
+        self._solveFPS()
 
         # generate main file
         stage = Usd.Stage.CreateInMemory()
