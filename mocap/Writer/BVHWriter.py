@@ -36,7 +36,7 @@ class BVHWriter(BaseWriter):
     def _mergeAnimation(self, file):
         print("MOTION", file=file)
         print(f"Frames: {self.lastFrame_+1}", file=file)
-        print(f"Frame Time: {1.0 / self.fps_}", file=file)
+        print(f"Frame Time: {1.0 / self._fps}", file=file)
 
         for base in sorted(self._tempFiles):
             tmp = self._tempFiles.pop(base)

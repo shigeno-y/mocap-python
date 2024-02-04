@@ -109,7 +109,7 @@ class USDWriter(BaseWriter):
         skeleton = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("Skeleton"))
         animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
 
-        stage.SetFramesPerSecond(self.fps_)
+        stage.SetFramesPerSecond(self._fps)
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
