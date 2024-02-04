@@ -73,7 +73,7 @@ def worker(title: str, qs: dict, qk):
         delta = list(map(lambda x: abs(x - fps), candidate))
         fps = int(candidate[delta.index(min(delta))])
 
-    writer.fps_ = fps
+    writer._fps = fps
     try:
         writer.close()
     except Exception as e:

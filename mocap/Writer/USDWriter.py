@@ -34,7 +34,7 @@ class USDWriter(BaseWriter):
         skeleton = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("Skeleton"))
         animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
 
-        stage.SetFramesPerSecond(self.fps_)
+        stage.SetFramesPerSecond(self._fps)
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
@@ -106,7 +106,7 @@ def hierarchy(skeleton: list):
         if skel is None:
             skel = SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"])
             skel.global_to_self_transform = Gf.Matrix4d(
-                1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, skel.translation[0], skel.translation[1], skel.translation[1], 1
+                1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, skel.translation[0], skel.translation[1], skel.translation[2], 1
             )
         else:
             skel.append(SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"]))
