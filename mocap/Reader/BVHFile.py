@@ -18,7 +18,6 @@ def composeFromBVH(infile: Path, output_base: Path, stride: int):
         output_base=output_base,
         stride=stride,
         framesPerSecond=round(1.0 / bvh.frame_time),
-        do_more_on_flushTimesample=False,
     )
 
     usd.initialFrame_ = 0
@@ -26,6 +25,10 @@ def composeFromBVH(infile: Path, output_base: Path, stride: int):
 
     composeSkeleton(usd, bvh)
     composeAnimation(usdMain, output_base, stride, bvh, usd.skeleton_)
+
+    usd.frameTimes_.append(0)
+    usd.frameTimes_.append(bvh.frame_time)
+    usd.frameTimes_.append(bvh.frame_time * 2)
 
     usd.close()
 
@@ -82,13 +85,14 @@ def composeAnimation(outfile: str, output_base: Path, stride: int, bvh: Bvh, ske
 def traverseBVH(
     outfile: str, output_base: Path, stride: int, bvh: Bvh, skeleton: OrderedDict, start_frame: int, last_frame: int
 ):
-    usd = USDWriter(outfile, output_base=output_base, stride=stride, do_more_on_flushTimesample=False)
+    usd = USDWriter(outfile, output_base=output_base, stride=stride)
     usd.initialFrame_ = 0
     usd.updateSkeleton(skeleton)
     joints = bvh.get_joints_names()
     for frame in range(start_frame, min(last_frame, bvh.nframes)):
         tmp = dict()
         tmp["fnum"] = frame
+        tmp["uttm"] = frame * bvh.frame_time
         tmp["btrs"] = list()
         for j in joints:
             ttmp = dict()
