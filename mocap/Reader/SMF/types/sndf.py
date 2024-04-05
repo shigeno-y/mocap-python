@@ -17,18 +17,18 @@ class sndf(DataBlock):
 class ipad(DataBlock):
     """IP Address Box"""
 
-    _FIELDS = "II"
+    _FIELDS = "BBBBxxxx"
     _4CC = "ipad"
 
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
 
     def _parseData(self):
-        import ipaddress
+        # import ipaddress
 
         self._readRAW()
 
-        self._parsed = ipaddress.ip_address(self._parsed)
+        # self._parsed = ipaddress.ip_address(self._parsed)
 
 
 class rcvp(DataBlock):

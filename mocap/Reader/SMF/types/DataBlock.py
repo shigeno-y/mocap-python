@@ -1,4 +1,5 @@
 import struct
+from collections import defaultdict
 
 
 class DataBlock:
@@ -12,7 +13,7 @@ class DataBlock:
         self._type = type
         self._data = data
 
-        self._parsed = dict()
+        self._parsed = defaultdict(list)
         self.__types = dict()
 
     def __import_type(self, type: str):
@@ -36,6 +37,7 @@ class DataBlock:
     def _parseData(self):
         offset = 0
         while offset < len(self._data):
+            print(type(self)._4CC, offset)
             param = dict()
             param["size"] = struct.unpack("<L", self._data[offset : offset + 4])[0]
             offset += 4
@@ -50,46 +52,20 @@ class DataBlock:
 
             newBlock = self.__types[param["type"]](**param)
             newBlock._parseData()
-            self._parsed[newBlock._type] = newBlock
+            self._parsed[newBlock._type].append(newBlock)
             offset += param["size"]
 
     def _readRAW(self):
-        self._parsed = struct.unpack(type(self)._FIELDS, self._data)[0]
+        self._parsed = struct.unpack(type(self)._FIELDS, self._data)
 
     def _dumpData(self, indent: int = 0):
         i = "  " * indent
 
-        print(i, type(self)._4CC, sep="")
+        print(i, type(self)._4CC, " ", self._size, " ", len(self._data), sep="")
         if isinstance(self._parsed, dict):
             for t, v in self._parsed.items():
                 print(i, t, "...", sep="")
-                v._dumpData(indent + 1)
+                for vv in v:
+                    vv._dumpData(indent + 1)
         else:
             print(i, self._parsed, sep="")
-
-
-"""
-from .fram import fnum, time, btrs, btdt
-from .head import head, ftyp, vrsn
-from .skdf import skdf, bons, bndt, bnid, pbid, tran
-from .sndf import sndf, ipad, rcvp
-
-_4CC_CLASS_MAP = {
-    "fnum": fnum,
-    "time": time,
-    "btrs": btrs,
-    "btdt": btdt,
-    "head": head,
-    "ftyp": ftyp,
-    "vrsn": vrsn,
-    "skdf": skdf,
-    "bons": bons,
-    "bndt": bndt,
-    "bnid": bnid,
-    "pbid": pbid,
-    "tran": tran,
-    "sndf": sndf,
-    "ipad": ipad,
-    "rcvp": rcvp,
-}
-"""
