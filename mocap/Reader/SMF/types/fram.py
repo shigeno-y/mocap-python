@@ -46,7 +46,7 @@ class uttm(DataBlock):
     """UTC Timestamp Box"""
 
     _FIELDS = "<d"
-    _4CC = "time"
+    _4CC = "uttm"
 
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
