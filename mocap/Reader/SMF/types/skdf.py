@@ -51,6 +51,7 @@ class bnid(DataBlock):
 
     def _parseData(self):
         self._readRAW()
+        self._parsed = self._parsed[0]
 
 
 class pbid(DataBlock):
@@ -64,6 +65,7 @@ class pbid(DataBlock):
 
     def _parseData(self):
         self._readRAW()
+        self._parsed = self._parsed[0]
 
 
 class tran(DataBlock):
@@ -77,3 +79,13 @@ class tran(DataBlock):
 
     def _parseData(self):
         self._readRAW()
+        # self._parsed = self._parsed[0]
+        self._parsed = {
+            "rotX": self._parsed[0],
+            "rotY": self._parsed[1],
+            "rotZ": self._parsed[2],
+            "rotW": self._parsed[3],
+            "traX": self._parsed[4],
+            "traY": self._parsed[5],
+            "traZ": self._parsed[6],
+        }

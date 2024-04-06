@@ -37,7 +37,6 @@ class DataBlock:
     def _parseData(self):
         offset = 0
         while offset < len(self._data):
-            print(type(self)._4CC, offset)
             param = dict()
             param["size"] = struct.unpack("<L", self._data[offset : offset + 4])[0]
             offset += 4
@@ -65,7 +64,12 @@ class DataBlock:
         if isinstance(self._parsed, dict):
             for t, v in self._parsed.items():
                 print(i, t, "...", sep="")
-                for vv in v:
-                    vv._dumpData(indent + 1)
+                if isinstance(v, DataBlock):
+                    v._dumpData(indent + 1)
+                elif isinstance(v, list):
+                    for vv in v:
+                        vv._dumpData(indent + 1)
+                else:
+                    print(i, v)
         else:
             print(i, self._parsed, sep="")

@@ -12,6 +12,7 @@ class fnum(DataBlock):
 
     def _parseData(self):
         self._readRAW()
+        self._parsed = self._parsed[0]
 
 
 class time(DataBlock):
@@ -25,6 +26,7 @@ class time(DataBlock):
 
     def _parseData(self):
         self._readRAW()
+        self._parsed = self._parsed[0]
 
 
 class btrs(DataBlock):

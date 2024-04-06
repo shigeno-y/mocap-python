@@ -38,3 +38,4 @@ class vrsn(DataBlock):
 
     def _parseData(self):
         self._readRAW()
+        self._parsed = self._parsed[0]
