@@ -24,6 +24,7 @@ class DataBlock:
             ".head",
             ".skdf",
             ".sndf",
+            ".sndt",
         ]:
             mod = importlib.import_module(m, __package__)
             try:

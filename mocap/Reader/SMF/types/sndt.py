@@ -1,11 +1,11 @@
 from .DataBlock import DataBlock
 
 
-class skdf(DataBlock):
-    """Skeleton Definition Box"""
+class sndt(DataBlock):
+    """Sensor Data"""
 
     _FIELDS = "###"
-    _4CC = "skdf"
+    _4CC = "sndt"
 
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
@@ -14,37 +14,37 @@ class skdf(DataBlock):
         super()._parseData()
 
 
-class bons(DataBlock):
-    """Bone Data Array Box"""
+class snad(DataBlock):
+    """Sensor Address"""
 
-    _FIELDS = "###"
-    _4CC = "bons"
-
-    def __init__(self, *, size: int, type: str, data: bytes):
-        super().__init__(size=size, type=type, data=data)
-
-    def _parseData(self):
-        super()._parseData()
-
-
-class bndt(DataBlock):
-    """Bone Data Box"""
-
-    _FIELDS = "###"
-    _4CC = "bndt"
+    _FIELDS = "s"
+    _4CC = "snad"
 
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
 
     def _parseData(self):
-        super()._parseData()
+        self._parsed = self._data.decode("ascii")
 
 
-class bnid(DataBlock):
-    """Bone ID Box"""
+class snnm(DataBlock):
+    """Sensor Name"""
 
-    _FIELDS = "<H"
-    _4CC = "bnid"
+    _FIELDS = "s"
+    _4CC = "snnm"
+
+    def __init__(self, *, size: int, type: str, data: bytes):
+        super().__init__(size=size, type=type, data=data)
+
+    def _parseData(self):
+        self._parsed = self._data.decode("ascii")
+
+
+class snji(DataBlock):
+    """Sensor Joint ID"""
+
+    _FIELDS = "<I"
+    _4CC = "snji"
 
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
@@ -54,25 +54,11 @@ class bnid(DataBlock):
         self._parsed = self._parsed[0]
 
 
-class pbid(DataBlock):
-    """Parent Bone ID Box"""
-
-    _FIELDS = "<H"
-    _4CC = "pbid"
-
-    def __init__(self, *, size: int, type: str, data: bytes):
-        super().__init__(size=size, type=type, data=data)
-
-    def _parseData(self):
-        self._readRAW()
-        self._parsed = self._parsed[0]
-
-
-class tran(DataBlock):
-    """Transform Data Box"""
+class snvl(DataBlock):
+    """Sensor Value"""
 
     _FIELDS = "<fffffff"
-    _4CC = "tran"
+    _4CC = "snvl"
 
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
