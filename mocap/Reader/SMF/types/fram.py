@@ -1,6 +1,19 @@
 from .DataBlock import DataBlock
 
 
+class fram(DataBlock):
+    """Frame Data Box"""
+
+    _FIELDS = "###"
+    _4CC = "fram"
+
+    def __init__(self, *, size: int, type: str, data: bytes):
+        super().__init__(size=size, type=type, data=data)
+
+    def _parseData(self):
+        super()._parseData()
+
+
 class fnum(DataBlock):
     """Frame Number Box"""
 
@@ -27,6 +40,24 @@ class time(DataBlock):
     def _parseData(self):
         self._readRAW()
         self._parsed = self._parsed[0]
+
+
+class uttm(DataBlock):
+    """UTC Timestamp Box"""
+
+    _FIELDS = "<d"
+    _4CC = "time"
+
+    def __init__(self, *, size: int, type: str, data: bytes):
+        super().__init__(size=size, type=type, data=data)
+
+    def _parseData(self):
+        import datetime
+
+        self._readRAW()
+        self._parsed = self._parsed[0]
+
+        self._parsed = datetime.datetime.fromtimestamp(self._parsed, datetime.timezone.utc)
 
 
 class btrs(DataBlock):
