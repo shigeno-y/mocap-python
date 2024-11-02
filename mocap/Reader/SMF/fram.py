@@ -23,6 +23,9 @@ class fnum(DataBlock):
     def __init__(self, *, size: int, type: str, data: bytes):
         super().__init__(size=size, type=type, data=data)
 
+    def __int__(self):
+        return int(self._parsed)
+
     def _parseData(self):
         self._readRAW()
         self._parsed = self._parsed[0]
@@ -40,6 +43,22 @@ class time(DataBlock):
     def _parseData(self):
         self._readRAW()
         self._parsed = self._parsed[0]
+
+
+class tmcd(DataBlock):
+    """UNKNOWN FIELD"""
+
+    _FIELDS = "<cccccc"
+    _4CC = "tmcd"
+
+    def __init__(self, *, size: int, type: str, data: bytes):
+        super().__init__(size=size, type=type, data=data)
+
+    def _parseData(self):
+        self._readRAW()
+        self._parsed = self._parsed[0]
+
+        self._parsed = list(self._parsed)
 
 
 class uttm(DataBlock):

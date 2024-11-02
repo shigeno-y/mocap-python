@@ -16,6 +16,19 @@ class DataBlock:
         self._parsed = defaultdict(list)
         self.__types = dict()
 
+    def __contains__(self, item):
+        if isinstance(self._parsed, dict) or isinstance(self._parsed, list):
+            return item in self._parsed
+        else:
+            return False
+
+    def __getitem__(self, key):
+        if key not in self:
+            print(f"<{key}> is not in {self._4CC}")
+            raise KeyError
+
+        return self._parsed[key][0]
+
     def __import_type(self, type: str):
         import importlib
 
@@ -74,3 +87,9 @@ class DataBlock:
                     print(i, v)
         else:
             print(i, self._parsed, sep="")
+
+
+def decomposePacket(rawData: bytes):
+    data = DataBlock(size=len(rawData), type="RAW", data=rawData)
+    data._parseData()
+    return data
