@@ -15,8 +15,83 @@ class USDWriter(BaseWriter):
 
         self.pattern_ = self._baseDir / clipPattern
 
+        self.joints = list()
+        self.jointNames = list()
+        self.restTransForms = list()
+
+    def updateSkeleton(self, skeleton: list):
+        skel = None
+        for s in sorted(skeleton, key=lambda x: x["bnid"]):
+            if skel is None:
+                skel = SkelNode(
+                    s["bnid"],
+                    s["tran"]["rotation"],
+                    s["tran"]["translation"],
+                    s["pbid"],
+                )
+                skel.global_to_self_transform = Gf.Matrix4d(
+                    1,
+                    0,
+                    0,
+                    0,  #
+                    0,
+                    1,
+                    0,
+                    0,  #
+                    0,
+                    0,
+                    1,
+                    0,  #
+                    skel.translation[0],
+                    skel.translation[1],
+                    skel.translation[1],
+                    1,
+                )
+            else:
+                skel.append(
+                    SkelNode(
+                        s["bnid"],
+                        s["tran"]["rotation"],
+                        s["tran"]["translation"],
+                        s["pbid"],
+                    )
+                )
+
+        joints = OrderedDict()
+
+        def BuildJoints(s):
+            joints[s.id] = s.fullPath()
+            for c in s.children:
+                BuildJoints(c)
+
+        BuildJoints(skel)
+
+        jointNames = OrderedDict()
+
+        def BuildJointNames(s):
+            jointNames[s.id] = s.name()
+            for c in s.children:
+                BuildJointNames(c)
+
+        BuildJointNames(skel)
+
+        restTransForms = OrderedDict()
+
+        def BuildRests(s):
+            restTransForms[s.id] = s.restTransform
+            for c in s.children:
+                BuildRests(c)
+
+        BuildRests(skel)
+
+        self.skeleton_ = skel
+        self.joints = joints
+        self.jointNames = jointNames
+        self.restTransForms = restTransForms
+
     def close(self):
-        joints, jointNames, restTransforms = hierarchy(self.skeleton_)
+        joints = self.joints
+        restTransforms = self.restTransForms
         # generate manifest file
         manifestFile = self._baseDir / "manifest.usda"
         generateManifest(manifestFile.as_posix())
@@ -80,60 +155,19 @@ class USDWriter(BaseWriter):
         super().flushTimesample()
 
     def _writeAnimation(self, base, samples):
-        joints, jointNames, restTransforms = hierarchy(self.skeleton_)
         file = Path(self.pattern_.as_posix().replace("#", str(base)))
         self._writeAnimationThreads.append(
             multiprocessing.Process(
                 target=saveValueClip,
                 args=(
                     file.as_posix(),
-                    joints,
+                    self.joints,
                     samples,
                 ),
                 name=file.name,
             )
         )
         self._writeAnimationThreads[-1].start()
-
-
-def hierarchy(skeleton: list):
-    skel = None
-    for s in sorted(skeleton, key=lambda x: x["bnid"]):
-        if skel is None:
-            skel = SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"])
-            skel.global_to_self_transform = Gf.Matrix4d(
-                1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, skel.translation[0], skel.translation[1], skel.translation[1], 1
-            )
-        else:
-            skel.append(SkelNode(s["bnid"], s["tran"]["rotation"], s["tran"]["translation"], s["pbid"]))
-
-    joints = OrderedDict()
-
-    def BuildJoints(s):
-        joints[s.id] = s.fullPath()
-        for c in s.children:
-            BuildJoints(c)
-
-    BuildJoints(skel)
-
-    jointNames = OrderedDict()
-
-    def BuildJointNames(s):
-        jointNames[s.id] = s.name()
-        for c in s.children:
-            BuildJointNames(c)
-
-    BuildJointNames(skel)
-
-    restTransForms = OrderedDict()
-
-    def BuildRests(s):
-        restTransForms[s.id] = s.restTransform
-        for c in s.children:
-            BuildRests(c)
-
-    BuildRests(skel)
-    return joints, jointNames, restTransForms
 
 
 def generateManifest(file: str):
