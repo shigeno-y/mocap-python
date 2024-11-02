@@ -10,11 +10,14 @@ class BVHWriter(BaseWriter):
     def __init__(self, *args, decomposeAxises=SkelNode.ZXY, **kwargs):
         super().__init__(*args, **kwargs, output_extension=".bvh")
 
+        self._baseDir.absolute().mkdir(parents=True, exist_ok=True)
+
         self._decomposeAxises = decomposeAxises
         self._tempFiles = dict()
 
     def close(self):
         self.flushTimesample()
+        self._solveFPS()
 
         with self._mainFile.open("w") as f:
             hierarchy(f, self.skeleton_, self._decomposeAxises)

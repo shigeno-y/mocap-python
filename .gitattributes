@@ -1,0 +1,5 @@
+/hooks export-ignore
+/usage export-ignore
+/.* export-ignore
+/pip-requirements.txt export-ignore
+/pyproject.toml export-ignore

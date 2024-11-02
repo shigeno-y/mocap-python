@@ -1,10 +1,10 @@
 def run_udp(args):
-    from mocap.udp import reciever
+    from mocap.udp import SMFReciever
 
-    reciever.WRITER_OF_CHOICE = args.writer
-    reciever.WRITER_OPTIONS = dict(**vars(args))
+    SMFReciever.WRITER_OF_CHOICE = args.writer
+    SMFReciever.WRITER_OPTIONS = dict(**vars(args))
 
-    with reciever.ThreadedUDPServer(("0.0.0.0", args.listen_port), reciever.ThreadedUDPHandler) as server:
+    with SMFReciever.ThreadedUDPServer(("0.0.0.0", args.listen_port), SMFReciever.ThreadedUDPHandler) as server:
         try:
             server.serve_forever()
         except KeyboardInterrupt:
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     import argparse
     from pathlib import Path
 
-    from mocap.udp import reciever
+    from mocap.udp import SMFReciever
 
     parser = argparse.ArgumentParser()
     parser.set_defaults(func=lambda x: parser.print_help())
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     udp = subparsers.add_parser("udp")
     udp.add_argument("--listen-port", type=int, default=12351)
-    udp.add_argument("--writer", choices=reciever.WRITERS.keys(), default="usd")
+    udp.add_argument("--writer", choices=SMFReciever.WRITERS.keys(), default="usd")
     udp.add_argument("-o", "--output-base", type=Path, metavar="OUTPUT", default=None)
     udp.add_argument("--stride", type=int, metavar="STRIDE", default=600)
     udp.set_defaults(func=run_udp)

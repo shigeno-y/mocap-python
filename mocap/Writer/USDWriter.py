@@ -98,6 +98,7 @@ class USDWriter(BaseWriter):
 
         # flush valueclips file
         self.flushTimesample()
+        self._solveFPS()
 
         # generate main file
         stage = Usd.Stage.CreateInMemory()
@@ -108,7 +109,7 @@ class USDWriter(BaseWriter):
         skeleton = UsdSkel.Skeleton.Define(stage, skelRoot.GetPath().AppendChild("Skeleton"))
         animPrim = UsdSkel.Animation.Define(stage, skelRoot.GetPath().AppendChild("Motion"))
 
-        stage.SetFramesPerSecond(self.fps_)
+        stage.SetFramesPerSecond(self._fps)
         stage.SetStartTimeCode(0)
         stage.SetEndTimeCode(self.lastFrame_)
 
@@ -116,7 +117,9 @@ class USDWriter(BaseWriter):
         skeleton.CreateBindTransformsAttr().Set(default_transforms)
         skeleton.CreateRestTransformsAttr().Set(default_transforms)
         skeleton.CreateJointsAttr().Set(list(joints.values()))
-        skeleton.GetPrim().GetRelationship("skel:animationSource").SetTargets([animPrim.GetPath()])
+
+        skelAnimBinding = UsdSkel.BindingAPI.Apply(skeleton.GetPrim())
+        skelAnimBinding.CreateAnimationSourceRel().AddTarget(animPrim.GetPath())
 
         animPrim.CreateJointsAttr().Set(list(joints.values()))
         animPrim.CreateRotationsAttr()
@@ -133,24 +136,25 @@ class USDWriter(BaseWriter):
         valueclip.SetClipManifestAssetPath(manifestFile.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateAssetPath(self.pattern_.relative_to(self._baseDir.parent).as_posix())
         valueclip.SetClipTemplateStartTime(0)
-        valueclip.SetClipTemplateEndTime(max(self.timesamples_[max(self.timesamples_.keys())].keys()))
+        valueclip.SetClipTemplateEndTime((self.lastFrame_ // self._stride + 1) * self._stride)
         valueclip.SetClipTemplateStride(self._stride)
 
         layer.TransferContent(stage.GetRootLayer())
         layer.Export(self._mainFile.as_posix())
 
     def flushTimesample(self):
-        for base, v in self.timesamples_.items():
-            if len(v) < self._stride:
-                max_1 = min(v.keys()) + self._stride - 1
-                v[max_1] = v[max(v.keys())]
+        if len(self.timesamples_) > 0:
+            for base, v in self.timesamples_.items():
+                if len(v) < self._stride:
+                    max_1 = min(v.keys()) + self._stride - 1
+                    v[max_1] = v[max(v.keys())]
 
-        last_base = max(self.timesamples_.keys())
-        last_pose_frame = max(self.timesamples_[last_base].keys())
-        lase_pose = self.timesamples_[last_base][last_pose_frame]
+            last_base = max(self.timesamples_.keys())
+            last_pose_frame = max(self.timesamples_[last_base].keys())
+            lase_pose = self.timesamples_[last_base][last_pose_frame]
 
-        self.timesamples_[last_base + self._stride][last_base + self._stride] = lase_pose
-        self.timesamples_[last_base + self._stride][last_base + (self._stride * 2) - 1] = lase_pose
+            self.timesamples_[last_base + self._stride][last_base + self._stride] = lase_pose
+            self.timesamples_[last_base + self._stride][last_base + (self._stride * 2) - 1] = lase_pose
 
         super().flushTimesample()
 

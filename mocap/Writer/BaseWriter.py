@@ -23,6 +23,7 @@ class BaseWriter:
 
         self.skeleton_ = list()
         self.timesamples_ = defaultdict(dict)
+        self.frameTimes_ = list()
         self.initialFrame_ = None
         self.lastFrame_ = -1
         self._writeAnimationThreads = list()
@@ -40,6 +41,7 @@ class BaseWriter:
         frame -= self.initialFrame_
         self.lastFrame_ = max(self.lastFrame_, frame)
         self.timesamples_[(frame // self._stride) * self._stride][frame] = sample
+        self.frameTimes_.append(sample["uttm"])
 
         buckets = self.timesamples_.keys()
         if self.skeleton_ is not None and len(self.timesamples_[min(buckets)]) >= self._stride:
@@ -56,6 +58,23 @@ class BaseWriter:
 
     def _writeAnimation(self, base, samples):
         raise NotImplementedError("__writeAnimation OVERRIDE REQUIRED")
+
+    def _solveFPS(self):
+        from statistics import fmean
+
+        fps = 1.0 / fmean(map(lambda t: t[1] - t[0], zip(self.frameTimes_, self.frameTimes_[1:])))
+        candidate = [
+            30,
+            50,
+            60,
+        ]
+        if int(fps) in candidate:
+            fps = int(fps)
+        else:
+            delta = list(map(lambda x: abs(x - fps), candidate))
+            fps = int(candidate[delta.index(min(delta))])
+
+        self._fps = fps
 
 
 __all__ = ["BaseWriter"]
